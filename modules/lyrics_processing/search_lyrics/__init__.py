@@ -1,0 +1,1 @@
+from .process import fetch_and_save_lyrics

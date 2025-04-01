@@ -385,6 +385,7 @@ def generate_subtitles_and_video_callback(
 
     # Additional or override flags
     override_subs: bool,
+    edit_ass_before_render: bool,
     output_dir: str,
     effects_dir: str
 ):
@@ -440,6 +441,7 @@ def generate_subtitles_and_video_callback(
             fps=fps,
             bitrate=bitrate,
             audio_bitrate=audio_bitrate,
+            edit_ass_before_render=edit_ass_before_render,
         )
 
         return video_output_path

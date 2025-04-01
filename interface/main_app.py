@@ -1,5 +1,6 @@
 import gradio as gr
 import pandas as pd
+import os
 
 # Local Application Imports
 from .callbacks import (
@@ -21,6 +22,8 @@ from modules import (
     get_available_colors,
     get_font_list,
 )
+from modules.subtitle_processing.ass_editor import get_subtitle_format_help
+from .components.ass_editor_component import create_ass_editor_component
 
 # Main App Interface
 def main_app(cache_dir, fonts_dir, output_dir, project_root):
@@ -335,6 +338,19 @@ def main_app(cache_dir, fonts_dir, output_dir, project_root):
                     value=True,
                     info="Eğer `karaoke_subtitles.ass` dosyası zaten varsa, yeni oluşturulan dosya ile üzerine yaz."
                 )
+                edit_ass_before_render = gr.Checkbox(
+                    label="ASS Dosyasını Manuel Düzenle",
+                    value=False,
+                    info="Video oluşturmadan önce ASS dosyasını (altyazılar) manuel düzenlemeye izin ver."
+                )
+
+        gr.Markdown("#### ASS Altyazı Editörü")
+        with gr.Accordion("ASS Altyazı Editörü", open=False) as ass_editor_accordion:
+            # ASS Editör Bileşenlerini Ekle
+            ass_editor_components = create_ass_editor_component(None)
+        
+        # Bileşenler listesini aç
+        [html_view, ass_content_field, save_button, save_status] = ass_editor_components
         generate_karaoke_button = gr.Button("Karaoke Oluştur", variant="primary", interactive=False)
         karaoke_video_output = gr.Video(label="Karaoke Videosu", interactive=False)
         gr.HTML("<hr>")
@@ -545,6 +561,24 @@ def main_app(cache_dir, fonts_dir, output_dir, project_root):
             outputs=[]
         )
 
+        # Altyazı editörü güncelleme fonksiyonu
+        def update_ass_editor(working_dir):
+            return create_ass_editor_component(working_dir)
+        
+        # Check ASS Editor butonunu Ekle
+        check_editor_button = gr.Button("Karaoke ASS Dosyasını Editöre Yükle", variant="secondary")
+        
+        # Check editor butonu tıklandığında ASS editörünü güncelle
+        check_editor_button.click(
+            fn=update_ass_editor,
+            inputs=[state_working_dir],
+            outputs=ass_editor_components
+        ).then(
+            fn=lambda: gr.update(open=True),
+            inputs=[],
+            outputs=[ass_editor_accordion]
+        )
+
         # (Birincil) Karaoke Oluştur Butonu
         generate_karaoke_button.click(
             fn=lambda: gr.Info("Karaoke oluşturma başladı..."), # Başlangıç mesajı
@@ -573,6 +607,7 @@ def main_app(cache_dir, fonts_dir, output_dir, project_root):
                 bitrate_input,
                 audio_bitrate_input,
                 force_subtitles_overwrite,
+                edit_ass_before_render,
                 gr.State(output_dir),
                 gr.State(effects_dir)
             ],

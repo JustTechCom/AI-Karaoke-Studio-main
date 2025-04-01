@@ -8,6 +8,7 @@ services:
       GEMINI_API_KEY: AIzaSyAj04oiDMaV4Zr8ib_qiMQc9V7zSqrcgmc
     ports:
       - 7860:7860
+      - 7880:7880
     volumes:
       - ./cache:/app/cache:rw
       - ./fonts:/app/fonts:ro

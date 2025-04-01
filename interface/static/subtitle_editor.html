@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Karaoke ASS Zaman Editörü</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .editor-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .timeline {
+            position: relative;
+            height: 60px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .timeline-marker {
+            position: absolute;
+            height: 100%;
+            width: 2px;
+            background: red;
+            top: 0;
+            z-index: 10;
+        }
+        .timeline-event {
+            position: absolute;
+            height: 30px;
+            background: #4287f5;
+            top: 15px;
+            border-radius: 4px;
+            cursor: move;
+            color: white;
+            font-size: 12px;
+            line-height: 30px;
+            padding: 0 10px;
+            overflow: hidden;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .timeline-event .start-handle,
+        .timeline-event .end-handle {
+            position: absolute;
+            width: 10px;
+            height: 100%;
+            top: 0;
+            background: rgba(0,0,0,0.2);
+            cursor: col-resize;
+        }
+        .timeline-event .start-handle {
+            left: 0;
+        }
+        .timeline-event .end-handle {
+            right: 0;
+        }
+        .controls {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 10px;
+            align-items: center;
+        }
+        .audio-player {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .time-display {
+            font-family: monospace;
+            font-size: 16px;
+            padding: 5px 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin-left: 10px;
+        }
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            margin-left: auto;
+        }
+        button {
+            padding: 8px 15px;
+            background: #4287f5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #2d6cd4;
+        }
+        .timeline-scale {
+            height: 20px;
+            position: relative;
+            border-top: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 5px;
+        }
+        .timeline-scale .mark {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            border-left: 1px solid #999;
+            font-size: 10px;
+        }
+        .timeline-scale .mark span {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-family: monospace;
+        }
+        .subtitle-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .subtitle-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .subtitle-item.selected {
+            background: #e3f2fd;
+        }
+        .subtitle-item:hover {
+            background: #f5f5f5;
+        }
+        .subtitle-text {
+            flex: 1;
+        }
+        .subtitle-times {
+            color: #666;
+            font-family: monospace;
+            margin-right: 10px;
+            white-space: nowrap;
+        }
+        .subtitle-actions button {
+            padding: 3px 8px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        .edit-form {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .form-group {
+            display: flex;
+            align-items: center;
+        }
+        .form-group label {
+            width: 100px;
+            font-weight: bold;
+        }
+        .form-group input, 
+        .form-group textarea {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group textarea {
+            height: 60px;
+            font-family: inherit;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <h1>Karaoke ASS Zaman Editörü</h1>
+        
+        <div class="controls">
+            <button id="play-pause">Oynat</button>
+            <button id="stop">Durdur</button>
+            <div class="time-display">00:00.000</div>
+            <div class="zoom-controls">
+                <button id="zoom-out">-</button>
+                <button id="zoom-in">+</button>
+                <button id="fit-all">Tümünü Görüntüle</button>
+            </div>
+        </div>
+        
+        <audio id="audio-player" class="audio-player" controls></audio>
+        
+        <div class="timeline-container">
+            <div class="timeline-scale" id="timeline-scale"></div>
+            <div class="timeline" id="timeline">
+                <div class="timeline-marker" id="timeline-marker"></div>
+                <!-- Timeline events will be added here -->
+            </div>
+        </div>
+        
+        <div class="subtitle-list" id="subtitle-list">
+            <!-- Subtitle items will be added here -->
+        </div>
+        
+        <div class="edit-form" id="edit-form">
+            <div class="form-group">
+                <label for="edit-start">Başlangıç:</label>
+                <input type="text" id="edit-start" placeholder="00:00.000">
+            </div>
+            <div class="form-group">
+                <label for="edit-end">Bitiş:</label>
+                <input type="text" id="edit-end" placeholder="00:00.000">
+            </div>
+            <div class="form-group">
+                <label for="edit-text">Metin:</label>
+                <textarea id="edit-text" placeholder="Altyazı metni"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="edit-style">Stil:</label>
+                <input type="text" id="edit-style" placeholder="Stil adı">
+            </div>
+            <div class="buttons">
+                <button id="update-subtitle">Güncelle</button>
+                <button id="cancel-edit">İptal</button>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button id="add-subtitle">Yeni Altyazı Ekle</button>
+            <button id="save-subtitles">Değişiklikleri Kaydet</button>
+        </div>
+    </div>
+    
+    <script>
+        // Simüle edilmiş ASS altyazı verileri
+        let subtitles = [];
+        let currentSubtitle = null;
+        let audioPlayer = document.getElementById('audio-player');
+        let timelineMarker = document.getElementById('timeline-marker');
+        let timeDisplay = document.querySelector('.time-display');
+        let timeline = document.getElementById('timeline');
+        let subtitleList = document.getElementById('subtitle-list');
+        let editForm = document.getElementById('edit-form');
+        let zoomLevel = 1;
+        let timelineWidth = timeline.offsetWidth;
+        let audioDuration = 180; // Varsayılan süre (saniye)
+        
+        // ASS dosyası yükleme fonksiyonu
+        function loadAssFile(assText, audioSrc) {
+            subtitles = parseAssFile(assText);
+            refreshTimeline();
+            refreshSubtitleList();
+            
+            if (audioSrc) {
+                audioPlayer.src = audioSrc;
+                audioPlayer.addEventListener('loadedmetadata', function() {
+                    audioDuration = audioPlayer.duration;
+                    refreshTimeline();
+                });
+            }
+        }
+        
+        // Basit ASS parser - Gerçek bir uygulamada daha karmaşık olmalı
+        function parseAssFile(assText) {
+            const lines = assText.split('\n');
+            const subtitles = [];
+            
+            for (const line of lines) {
+                if (line.startsWith('Dialogue:')) {
+                    const parts = line.split(',');
+                    const layer = parts[0].replace('Dialogue:', '').trim();
+                    const start = parts[1].trim();
+                    const end = parts[2].trim();
+                    const style = parts[3].trim();
+                    
+                    // Son kısımdan metin bölümünü çıkar
+                    let text = parts.slice(9).join(',');
+                    
+                    // ASS formatındaki komutları temizle (basit temizlik)
+                    text = text.replace(/{[^}]+}/g, '');
+                    
+                    subtitles.push({
+                        layer,
+                        start,
+                        end,
+                        style,
+                        text,
+                        startTime: timeToSeconds(start),
+                        endTime: timeToSeconds(end)
+                    });
+                }
+            }
+            
+            return subtitles.sort((a, b) => a.startTime - b.startTime);
+        }
+        
+        // Zamanı saniyeye çevir
+        function timeToSeconds(timeStr) {
+            const [h, m, s] = timeStr.split(':');
+            return parseInt(h) * 3600 + parseInt(m) * 60 + parseFloat(s);
+        }
+        
+        // Saniyeyi zaman formatına çevir
+        function secondsToTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = (seconds % 60).toFixed(3);
+            return `${h.toString().padStart(1, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(6, '0')}`;
+        }
+        
+        // Timeline'ı yenile
+        function refreshTimeline() {
+            const timeline = document.getElementById('timeline');
+            const timelineScale = document.getElementById('timeline-scale');
+            
+            // Mevcut timeline olaylarını temizle
+            while (timeline.children.length > 1) {
+                timeline.removeChild(timeline.lastChild);
+            }
+            
+            // Zaman ölçeğini temizle
+            timelineScale.innerHTML = '';
+            
+            // Zaman ölçeğini oluştur
+            const interval = 10; // Her 10 saniyede bir işaret
+            const pixelsPerSecond = timelineWidth / (audioDuration * zoomLevel);
+            
+            for (let i = 0; i <= audioDuration; i += interval) {
+                const mark = document.createElement('div');
+                mark.className = 'mark';
+                mark.style.left = `${i * pixelsPerSecond}px`;
+                
+                const label = document.createElement('span');
+                label.textContent = secondsToTime(i).split('.')[0]; // Milisaniyeleri gösterme
+                mark.appendChild(label);
+                
+                timelineScale.appendChild(mark);
+            }
+            
+            // Altyazıları timeline'a ekle
+            for (let i = 0; i < subtitles.length; i++) {
+                const subtitle = subtitles[i];
+                const event = document.createElement('div');
+                event.className = 'timeline-event';
+                event.innerHTML = `
+                    <div class="start-handle" data-index="${i}"></div>
+                    ${subtitle.text.substring(0, 20)}${subtitle.text.length > 20 ? '...' : ''}
+                    <div class="end-handle" data-index="${i}"></div>
+                `;
+                event.dataset.index = i;
+                
+                // Konum ve genişlik
+                const startPos = subtitle.startTime * pixelsPerSecond;
+                const endPos = subtitle.endTime * pixelsPerSecond;
+                const width = endPos - startPos;
+                
+                event.style.left = `${startPos}px`;
+                event.style.width = `${width}px`;
+                
+                timeline.appendChild(event);
+                
+                // Sürükleme olayları
+                initDragEvents(event);
+            }
+        }
+        
+        // Altyazı listesini yenile
+        function refreshSubtitleList() {
+            subtitleList.innerHTML = '';
+            
+            for (let i = 0; i < subtitles.length; i++) {
+                const subtitle = subtitles[i];
+                const item = document.createElement('div');
+                item.className = 'subtitle-item';
+                item.dataset.index = i;
+                
+                item.innerHTML = `
+                    <div class="subtitle-times">${subtitle.start} - ${subtitle.end}</div>
+                    <div class="subtitle-text">${subtitle.text}</div>
+                    <div class="subtitle-actions">
+                        <button class="edit-btn" data-index="${i}">Düzenle</button>
+                        <button class="delete-btn" data-index="${i}">Sil</button>
+                    </div>
+                `;
+                
+                subtitleList.appendChild(item);
+                
+                // Tıklama olayları
+                item.querySelector('.edit-btn').addEventListener('click', function() {
+                    editSubtitle(i);
+                });
+                
+                item.querySelector('.delete-btn').addEventListener('click', function() {
+                    deleteSubtitle(i);
+                });
+                
+                item.addEventListener('click', function(e) {
+                    if (!e.target.matches('button')) {
+                        selectSubtitle(i);
+                    }
+                });
+            }
+        }
+        
+        // Altyazı düzenleme
+        function editSubtitle(index) {
+            currentSubtitle = index;
+            const subtitle = subtitles[index];
+            
+            document.getElementById('edit-start').value = subtitle.start;
+            document.getElementById('edit-end').value = subtitle.end;
+            document.getElementById('edit-text').value = subtitle.text;
+            document.getElementById('edit-style').value = subtitle.style;
+            
+            // Form görünürlüğünü aç
+            editForm.style.display = 'block';
+        }
+        
+        // Altyazı silme
+        function deleteSubtitle(index) {
+            if (confirm('Bu altyazıyı silmek istediğinize emin misiniz?')) {
+                subtitles.splice(index, 1);
+                refreshTimeline();
+                refreshSubtitleList();
+            }
+        }
+        
+        // Altyazı seçme
+        function selectSubtitle(index) {
+            const items = document.querySelectorAll('.subtitle-item');
+            items.forEach(item => item.classList.remove('selected'));
+            
+            const selectedItem = document.querySelector(`.subtitle-item[data-index="${index}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('selected');
+                audioPlayer.currentTime = subtitles[index].startTime;
+            }
+        }
+        
+        // Sürükleme olaylarını başlat
+        function initDragEvents(element) {
+            let isDragging = false;
+            let isResizingStart = false;
+            let isResizingEnd = false;
+            let startX = 0;
+            let startLeft = 0;
+            let startWidth = 0;
+            const index = parseInt(element.dataset.index);
+            
+            // Başlangıç noktası tutacağı olayları
+            const startHandle = element.querySelector('.start-handle');
+            startHandle.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                isResizingStart = true;
+                startX = e.clientX;
+                startLeft = parseInt(element.style.left);
+                startWidth = parseInt(element.style.width);
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+            });
+            
+            // Bitiş noktası tutacağı olayları
+            const endHandle = element.querySelector('.end-handle');
+            endHandle.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                isResizingEnd = true;
+                startX = e.clientX;
+                startWidth = parseInt(element.style.width);
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+            });
+            
+            // Ana element sürükleme olayları
+            element.addEventListener('mousedown', function(e) {
+                if (!isResizingStart && !isResizingEnd) {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startLeft = parseInt(element.style.left);
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                }
+            });
+            
+            // Fareyi hareket ettirme
+            function handleMouseMove(e) {
+                const pixelsPerSecond = timelineWidth / (audioDuration * zoomLevel);
+                const dx = e.clientX - startX;
+                
+                if (isResizingStart) {
+                    // Başlangıç noktasını yeniden boyutlandır
+                    const newLeft = Math.max(0, startLeft + dx);
+                    const newWidth = Math.max(10, startWidth - dx);
+                    
+                    element.style.left = `${newLeft}px`;
+                    element.style.width = `${newWidth}px`;
+                    
+                    // Altyazı zamanlarını güncelle
+                    subtitles[index].startTime = newLeft / pixelsPerSecond;
+                    subtitles[index].start = secondsToTime(subtitles[index].startTime);
+                } else if (isResizingEnd) {
+                    // Bitiş noktasını yeniden boyutlandır
+                    const newWidth = Math.max(10, startWidth + dx);
+                    element.style.width = `${newWidth}px`;
+                    
+                    // Altyazı zamanlarını güncelle
+                    subtitles[index].endTime = (parseInt(element.style.left) + newWidth) / pixelsPerSecond;
+                    subtitles[index].end = secondsToTime(subtitles[index].endTime);
+                } else if (isDragging) {
+                    // Tüm elementi sürükle
+                    const newLeft = Math.max(0, startLeft + dx);
+                    element.style.left = `${newLeft}px`;
+                    
+                    // Altyazı zamanlarını güncelle
+                    const duration = subtitles[index].endTime - subtitles[index].startTime;
+                    subtitles[index].startTime = newLeft / pixelsPerSecond;
+                    subtitles[index].endTime = subtitles[index].startTime + duration;
+                    subtitles[index].start = secondsToTime(subtitles[index].startTime);
+                    subtitles[index].end = secondsToTime(subtitles[index].endTime);
+                }
+            }
+            
+            // Fare bırakma
+            function handleMouseUp() {
+                isDragging = false;
+                isResizingStart = false;
+                isResizingEnd = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+                refreshSubtitleList();
+            }
+        }
+        
+        // Oynat/Duraklat butonu
+        document.getElementById('play-pause').addEventListener('click', function() {
+            if (audioPlayer.paused) {
+                audioPlayer.play();
+                this.textContent = 'Duraklat';
+            } else {
+                audioPlayer.pause();
+                this.textContent = 'Oynat';
+            }
+        });
+        
+        // Durdur butonu
+        document.getElementById('stop').addEventListener('click', function() {
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+            document.getElementById('play-pause').textContent = 'Oynat';
+        });
+        
+        // Ses oynatıcı zaman güncellemesi
+        audioPlayer.addEventListener('timeupdate', function() {
+            const pixelsPerSecond = timelineWidth / (audioDuration * zoomLevel);
+            timelineMarker.style.left = `${audioPlayer.currentTime * pixelsPerSecond}px`;
+            timeDisplay.textContent = secondsToTime(audioPlayer.currentTime);
+        });
+        
+        // Altyazı güncelleme
+        document.getElementById('update-subtitle').addEventListener('click', function() {
+            if (currentSubtitle !== null) {
+                const subtitle = subtitles[currentSubtitle];
+                subtitle.start = document.getElementById('edit-start').value;
+                subtitle.end = document.getElementById('edit-end').value;
+                subtitle.text = document.getElementById('edit-text').value;
+                subtitle.style = document.getElementById('edit-style').value;
+                subtitle.startTime = timeToSeconds(subtitle.start);
+                subtitle.endTime = timeToSeconds(subtitle.end);
+                
+                refreshTimeline();
+                refreshSubtitleList();
+                editForm.style.display = 'none';
+                currentSubtitle = null;
+            }
+        });
+        
+        // İptal butonu
+        document.getElementById('cancel-edit').addEventListener('click', function() {
+            editForm.style.display = 'none';
+            currentSubtitle = null;
+        });
+        
+        // Yeni altyazı ekleme
+        document.getElementById('add-subtitle').addEventListener('click', function() {
+            const newSubtitle = {
+                layer: '0',
+                start: secondsToTime(audioPlayer.currentTime),
+                end: secondsToTime(audioPlayer.currentTime + 3),
+                style: 'Default',
+                text: 'Yeni altyazı',
+                startTime: audioPlayer.currentTime,
+                endTime: audioPlayer.currentTime + 3
+            };
+            
+            subtitles.push(newSubtitle);
+            subtitles.sort((a, b) => a.startTime - b.startTime);
+            
+            refreshTimeline();
+            refreshSubtitleList();
+            editSubtitle(subtitles.findIndex(s => s === newSubtitle));
+        });
+        
+        // Kaydet butonu
+        document.getElementById('save-subtitles').addEventListener('click', function() {
+            const assContent = generateAssFile();
+            
+            // Bu demo sürümünde parent window'a veriyi gönderiyoruz
+            if (window.parent && window.parent.postMessage) {
+                window.parent.postMessage({
+                    type: 'save_subtitles',
+                    content: assContent
+                }, '*');
+            } else {
+                alert('Altyazılar başarıyla kaydedildi.\n\nBu demo sürümünde yalnızca bilgi amaçlı gösterilmektedir.');
+                console.log(assContent);
+            }
+        });
+        
+        // ASS dosyası oluştur
+        function generateAssFile() {
+            // Basit bir ASS dosyası formatı (gerçek dosyada daha fazla ayrıntı olacaktır)
+            let assContent = `[Script Info]
+Title: Generated Subtitle
+ScriptType: v4.00+
+PlayResX: 1280
+PlayResY: 720
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+
+            // Altyazıları ekle
+            for (const subtitle of subtitles) {
+                assContent += `Dialogue: ${subtitle.layer},${subtitle.start},${subtitle.end},${subtitle.style},,0,0,0,,${subtitle.text}\n`;
+            }
+            
+            return assContent;
+        }
+        
+        // Yakınlaştırma/Uzaklaştırma
+        document.getElementById('zoom-in').addEventListener('click', function() {
+            zoomLevel = Math.min(zoomLevel * 1.5, 10);
+            refreshTimeline();
+        });
+        
+        document.getElementById('zoom-out').addEventListener('click', function() {
+            zoomLevel = Math.max(zoomLevel / 1.5, 0.1);
+            refreshTimeline();
+        });
+        
+        document.getElementById('fit-all').addEventListener('click', function() {
+            zoomLevel = 1;
+            refreshTimeline();
+        });
+        
+        // Timeline'a tıklama
+        timeline.addEventListener('click', function(e) {
+            if (e.target === timeline) {
+                const rect = timeline.getBoundingClientRect();
+                const clickPos = e.clientX - rect.left;
+                const pixelsPerSecond = timelineWidth / (audioDuration * zoomLevel);
+                const clickTime = clickPos / pixelsPerSecond;
+                
+                audioPlayer.currentTime = clickTime;
+            }
+        });
+        
+        // Dışarıdan veri alma
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'load_subtitles') {
+                loadAssFile(event.data.content, event.data.audioSrc);
+            }
+        });
+        
+        // Örnek ASS dosyası
+        const exampleAssFile = `[Script Info]
+Title: Karaoke Example
+ScriptType: v4.00+
+PlayResX: 1280
+PlayResY: 720
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+Style: Line1,Futura XBlkCnIt BT,42,&H00FFFFFF,&H00FFFFFF,&H00FF8080,&H00FF8080,1,0,0,0,100,100,0,0,1,1,0,2,0,0,324,1
+Style: Line2,Futura XBlkCnIt BT,42,&H0000A5FF,&H00FFFFFF,&H00FF8080,&H00FF8080,1,0,0,0,100,100,0,0,1,1,0,2,0,0,396,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:05.00,0:00:10.00,Default,,0,0,0,,{\\fad(300,0)}Merhaba Dünya
+Dialogue: 0,0:00:10.50,0:00:15.50,Default,,0,0,0,,{\\fad(300,0)}Bu bir karaoke örneğidir
+Dialogue: 0,0:00:16.00,0:00:20.00,Line1,,0,0,0,,{\\fad(300,0)}Birinci satır
+Dialogue: 0,0:00:20.50,0:00:25.50,Line2,,0,0,0,,{\\fad(300,0)}İkinci satır
+`;
+
+        // Sayfa yüklendiğinde
+        window.onload = function() {
+            timelineWidth = timeline.offsetWidth;
+            editForm.style.display = 'none';
+            
+            // Örnek ASS dosyasını yükle (gerçek uygulamada burayı kaldır)
+            loadAssFile(exampleAssFile);
+            
+            // Pencere boyutunu değiştirme olayını dinle
+            window.addEventListener('resize', function() {
+                timelineWidth = timeline.offsetWidth;
+                refreshTimeline();
+            });
+        };
+    </script>
+</body>
+</html>

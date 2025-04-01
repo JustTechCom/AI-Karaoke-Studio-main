@@ -55,7 +55,7 @@ def create_ass_editor_component(launch_editor_func):
         return gr.update(value=button_text)
     
     # Yardımcı metin (ASS formatı hakkında bilgi)
-    help_text = """
+    help_text = r"""
 ### ASS Altyazı Formatı Kılavuzu
 
 ASS (Advanced SubStation Alpha) altyazı dosyaları aşağıdaki bölümlerden oluşur:
@@ -71,16 +71,16 @@ Dialogue: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Tex
 
 **Örnek altyazı satırı:**
 ```
-Dialogue: 0,0:00:05.00,0:00:10.00,Default,,0,0,0,,{\\fad(300,0)}Merhaba Dünya
+Dialogue: 0,0:00:05.00,0:00:10.00,Default,,0,0,0,,{\fad(300,0)}Merhaba Dünya
 ```
 
 **Sık kullanılan komutlar:**
-- \\N - Yeni satır
-- \\b1 - Kalın yazı (\\b0 normal)
-- \\i1 - İtalik yazı (\\i0 normal)
-- \\c&Hrrggbb& - Metin rengi
-- \\fad(t1,t2) - Solma efekti
-- \\pos(x,y) - Konumlandırma
+- \N - Yeni satır
+- \b1 - Kalın yazı (\b0 normal)
+- \i1 - İtalik yazı (\i0 normal)
+- \c&Hrrggbb& - Metin rengi
+- \fad(t1,t2) - Solma efekti
+- \pos(x,y) - Konumlandırma
 """
     
     # Yardım metni bileşeni

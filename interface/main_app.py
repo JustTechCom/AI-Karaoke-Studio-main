@@ -22,8 +22,7 @@ from modules import (
     get_available_colors,
     get_font_list,
 )
-from modules.subtitle_processing.ass_editor import get_subtitle_format_help
-from .components.ass_editor_component import create_ass_editor_component
+from .components.lyrics_timing_editor import create_lyrics_timing_editor, save_timing_changes
 
 # Main App Interface
 def main_app(cache_dir, fonts_dir, output_dir, project_root):
@@ -344,13 +343,10 @@ def main_app(cache_dir, fonts_dir, output_dir, project_root):
                     info="Video oluşturmadan önce ASS dosyasını (altyazılar) manuel düzenlemeye izin ver."
                 )
 
-        gr.Markdown("#### ASS Altyazı Editörü")
-        with gr.Accordion("ASS Altyazı Editörü", open=False) as ass_editor_accordion:
-            # ASS Editör Bileşenlerini Ekle
-            ass_editor_components = create_ass_editor_component(None)
-        
-        # Bileşenler listesini aç
-        [html_view, ass_content_field, save_button, save_status] = ass_editor_components
+        gr.Markdown("#### Şarkı Sözleri Zaman Düzenleme")
+        with gr.Accordion("Şarkı Sözleri Zaman Düzenleme", open=False) as lyrics_timing_accordion:
+            lyrics_timing_df, save_timing_button = create_lyrics_timing_editor(None, None)
+            timing_status = gr.Textbox(label="Durum", value="Zaman düzenleme için önce ses dosyası yükleyin", interactive=False)
         generate_karaoke_button = gr.Button("Karaoke Oluştur", variant="primary", interactive=False)
         karaoke_video_output = gr.Video(label="Karaoke Videosu", interactive=False)
         gr.HTML("<hr>")
@@ -444,6 +440,10 @@ def main_app(cache_dir, fonts_dir, output_dir, project_root):
             inputs=[state_working_dir],
             outputs=generate_karaoke_button
         ).then(
+            fn=update_lyrics_timing_editor,
+            inputs=[state_working_dir, state_lyrics_json],
+            outputs=[lyrics_timing_df, save_timing_button]
+        ).then(
             fn=on_finish,
             inputs=None,
             outputs=process_audio_button # Butonu eski hâline döndür
@@ -530,7 +530,7 @@ def main_app(cache_dir, fonts_dir, output_dir, project_root):
             outputs=[]
         )
 
-        # (İkincil) 🪄 AI ile Düzenle Butonu
+        # Modify butonu için güncelleme
         modify_button.click(
             fn=lambda: gr.Info("AI ile düzenleme başladı..."), # Başlangıç mesajı
             inputs=None,
@@ -556,27 +556,44 @@ def main_app(cache_dir, fonts_dir, output_dir, project_root):
             inputs=[state_working_dir],
             outputs=generate_karaoke_button
         ).then(
+            fn=update_lyrics_timing_editor,
+            inputs=[state_working_dir, state_lyrics_json],
+            outputs=[lyrics_timing_df, save_timing_button]
+        ).then(
             fn=lambda: gr.Info("AI ile düzenleme tamamlandı!"), # Bitiş mesajı
             inputs=None,
             outputs=[]
         )
 
-        # Altyazı editörü güncelleme fonksiyonu
-        def update_ass_editor(working_dir):
-            return create_ass_editor_component(working_dir)
+        # Şarkı sözleri zaman düzenleme fonksiyonu
+        def update_lyrics_timing_editor(working_dir, lyrics_json):
+            if working_dir and lyrics_json:
+                return create_lyrics_timing_editor(working_dir, lyrics_json)
+            return create_lyrics_timing_editor(None, None)
         
-        # Check ASS Editor butonunu Ekle
-        check_editor_button = gr.Button("Karaoke ASS Dosyasını Editöre Yükle", variant="secondary")
+        # Zaman Düzenleme butonunu Ekle
+        timing_editor_button = gr.Button("Zaman Düzenleme Editörünü Aç", variant="secondary")
         
-        # Check editor butonu tıklandığında ASS editörünü güncelle
-        check_editor_button.click(
-            fn=update_ass_editor,
-            inputs=[state_working_dir],
-            outputs=ass_editor_components
+        # Zaman düzenleme butonu tıklandığında zaman editörünü güncelle
+        timing_editor_button.click(
+            fn=update_lyrics_timing_editor,
+            inputs=[state_working_dir, state_lyrics_json],
+            outputs=[lyrics_timing_df, save_timing_button]
         ).then(
             fn=lambda: gr.update(open=True),
             inputs=[],
-            outputs=[ass_editor_accordion]
+            outputs=[lyrics_timing_accordion]
+        )
+        
+        # Zaman düzenleme kaydetme butonu tıklandığında
+        save_timing_button.click(
+            fn=save_timing_changes,
+            inputs=[lyrics_timing_df, state_working_dir, state_lyrics_json],
+            outputs=[state_lyrics_json, timing_status]
+        ).then(
+            fn=lambda json_data: display_dataframe_from_lyrics(json_data),
+            inputs=[state_lyrics_json],
+            outputs=[raw_lyrics_box]
         )
 
         # (Birincil) Karaoke Oluştur Butonu

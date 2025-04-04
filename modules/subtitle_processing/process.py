@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Union
 import logging
 import traceback
+import os
+from datetime import datetime
 
 # Local Application Imports
 from .utilities import extract_audio_duration
@@ -33,6 +35,9 @@ def process_karaoke_subtitles(
 ):
     try:
         logger.info("Creating karaoke subtitle file referencing timed lyrics")
+        logger.info(f"Output path: {output_path}")
+        logger.info(f"Override: {override}")
+        logger.info(f"Output file name: {file_name}")
 
         metadata = Path(output_path) / "metadata.json"
         modified_lyrics_file = Path(output_path) / "modified_lyrics.json"
@@ -40,13 +45,36 @@ def process_karaoke_subtitles(
         audio_file = Path(output_path) / "karaoke_audio.mp3"
         output_file = Path(output_path) / file_name
 
-        # Check if the output file already exists and skip if override is not set
-        if output_file.exists() and not override:
-            logger.info("Skipping subtitle generation... Karaoke subtitles file already exists in the output directory.")
-            return
+        # ASS dosyası varsa sil
+        if output_file.exists() and override:
+            try:
+                logger.info(f"Removing existing ASS file: {output_file}")
+                output_file.unlink()
+            except Exception as e:
+                logger.warning(f"Could not delete existing ASS file: {e}")
 
-        # Use `modified_lyrics.json`. If it does not exist use `raw_lyrics.json`
-        lyrics_file = modified_lyrics_file if Path(modified_lyrics_file).exists() else Path(raw_lyrics_file)
+        # Mevcut modified_lyrics.json dosyası var mı kontrol et
+        if Path(modified_lyrics_file).exists():
+            logger.info(f"Modified lyrics file exists at: {modified_lyrics_file}")
+            # Dosyanın son güncellenme zamanını al
+            try:
+                mod_time = os.path.getmtime(modified_lyrics_file)
+                mod_time_str = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
+                logger.info(f"Modified lyrics file last updated at: {mod_time_str}")
+            except Exception as e:
+                logger.warning(f"Could not get file stats: {e}")
+        else:
+            logger.warning(f"Modified lyrics file does not exist at: {modified_lyrics_file}")
+
+        # Force reload the lyrics data from disk
+        if Path(modified_lyrics_file).exists():
+            logger.info("Modified lyrics file exists. Using it for subtitle generation.")
+            lyrics_file = Path(modified_lyrics_file)
+        else:
+            logger.info("Modified lyrics file does not exist. Using raw lyrics file.")
+            lyrics_file = Path(raw_lyrics_file)
+            
+        logger.info(f"Using lyrics file: {lyrics_file}")
 
         if not lyrics_file.exists():
             logger.error("Lyrics file does not exist. Skipping subtitle generation...")
@@ -61,6 +89,12 @@ def process_karaoke_subtitles(
 
         # Load the lyrics
         verses_data = load_json(lyrics_file)
+        logger.info(f"Loaded {len(verses_data)} verses from {lyrics_file.name}")
+        
+        # Log some sample verse timing data
+        if verses_data and len(verses_data) > 0:
+            sample_verse = verses_data[0]
+            logger.info(f"Sample verse timing - start: {sample_verse.get('start')}, end: {sample_verse.get('end')}")
 
         # Extract audio duration (assuming you have an input file for the instrumental audio)
         audio_duration = extract_audio_duration(audio_file)
@@ -88,11 +122,20 @@ def process_karaoke_subtitles(
                 verses_after=verses_after,
                 loader_threshold=loader_threshold
             )
+            
+            # ASS dosyasının oluşturulup oluşturulmadığını kontrol et
+            if output_file.exists():
+                file_size = output_file.stat().st_size
+                logger.info(f"ASS file successfully created: {output_file} (Size: {file_size} bytes)")
+            else:
+                logger.warning(f"ASS file was not created: {output_file}")
+                
         except Exception:
             print(traceback.format_exc())
             raise
 
         logger.info(f"Karaoke subtitles file created: {output_file}")
+        return output_file
 
     except Exception as e:
         logger.error(f"An error occurred during subtitle generation: {e}")

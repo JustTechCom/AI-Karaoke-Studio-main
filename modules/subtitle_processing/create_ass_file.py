@@ -531,6 +531,10 @@ def create_ass_file(
       - Gap < 5 ise üst satır kaybolmadan bekler
     """
     try:
+        print(f"Creating ASS file at: {output_path}")
+        print(f"Input verses_data length: {len(verses_data)}")
+        print(f"Sample verse timing: start={(verses_data[0]['start'] if verses_data else 'N/A')}, end={(verses_data[0]['end'] if verses_data else 'N/A')}")
+        
         available_colors = get_available_colors()
         primary_color = validate_and_get_color(primary_color, "&H0000A5FF", available_colors)
         secondary_color = validate_and_get_color(secondary_color, "&H00FFFFFF", available_colors)
@@ -563,6 +567,17 @@ def create_ass_file(
 
             # Son satırı uzat veya değiştir
             extend_last_event(file, verses_data, audio_duration)
+
+        print(f"ASS file successfully written to: {output_path}")
+        try:
+            import os
+            file_size = os.path.getsize(output_path)
+            print(f"ASS file size: {file_size} bytes")
+            with open(output_path, "r", encoding="utf-8") as f:
+                sample_content = f.read(1000)
+                print(f"Sample ASS content (first 1000 chars): {sample_content[:1000]}...")
+        except Exception as e:
+            print(f"Error getting ASS file stats: {e}")
 
     except Exception as e:
         raise RuntimeError(f"Failed to create ASS file: {e}") from e

@@ -16,6 +16,23 @@ MODEL = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
 # Initialize Logger
 logger = logging.getLogger(__name__)
 
+def apply_dtw_correction(word_times, mfcc):
+    """
+    DTW (Dynamic Time Warping) algoritması kullanarak kelime zamanlarını düzeltir.
+    Bu fonksiyon sadece bir yer tutucu olarak eklenmiştir ve gerçek bir işlem yapmaz.
+    
+    Args:
+        word_times (list): Kelimelerin başlangıç ve bitiş zamanları listesi [(start1, end1), ...]
+        mfcc: MFCC özellikleri
+        
+    Returns:
+        list: Düzeltilmiş zamanlar listesi [(start1, end1), ...]
+    """
+    # Bu fonksiyon şu an bir yer tutucu olarak eklenmiştir 
+    # ve herhangi bir değişiklik yapmaz.
+    # Gerçek DTW uygulaması burada yapılabilir.
+    return word_times
+
 def filter_lyrics(verses):
     """
     Filters out verses containing unwanted phrases.
@@ -46,6 +63,91 @@ def filter_lyrics(verses):
             filtered_verses.append(verse)
     
     return filtered_verses
+
+def filter_early_vocals(verses, threshold_seconds=15.0, min_word_count=4):
+    """
+    Şarkının başındaki ilk birkaç saniyedeki arka vokalleri veya sesleri filtrele.
+    Genellikle intro sırasında duyulan "hadi, gel, hey" gibi sesleri çıkarır.
+    
+    Args:
+        verses (list[dict]): Açıklamalı verse'lerin listesi.
+        threshold_seconds (float): Başta dikkate alınmayacak süre (saniye).
+        min_word_count (int): Filtreleme için geçerli bir verse için minimum kelime sayısı.
+        
+    Returns:
+        list[dict]: Filtre sonrası kalan verse'lerin listesi.
+    """
+    if not verses:
+        return []
+    
+    # Eğer verses boş değilse, başlangıç zamanını al
+    filtered_verses = []
+    
+    # Her verse için
+    for verse in verses:
+        # Şarkının başındaki eşik değerinden önce mi?
+        if verse["start"] < threshold_seconds:
+            # Kısa ve başta ise (muhtemelen arka ses veya intro), kontrol et
+            # Kelime sayısı çok azsa, muhtemelen arka vokal
+            if len(verse["words"]) < min_word_count:
+                logger.debug(f"Filtering out early verse at {verse['start']}s with {len(verse['words'])} words")
+                continue
+                
+            # Eğer kelime sayısı yeterliyse bile ama 10 saniyeden önce başlıyorsa 
+            # ve kısa süre devam ediyorsa (intro/solo scream, hay, hey, vs. gibi) hala filtrele
+            if verse["start"] < 10.0 and (verse["end"] - verse["start"]) < 2.0:
+                logger.debug(f"Filtering out early short-duration verse at {verse['start']}s with duration {verse['end'] - verse['start']:.2f}s")
+                continue
+                
+            # Sözlerin içeriğine bak, anlamsız sesleri filtrele
+            verse_text = " ".join([word["word"] for word in verse["words"]]).lower()
+            noise_patterns = ["ahh", "hah", "hayy", "hmm", "oh", "huh", "yeah", "woo", "woah", "hey", "heya", "oohh"]
+            
+            if any(pattern in verse_text for pattern in noise_patterns) and verse["start"] < 10.0:
+                logger.debug(f"Filtering out early noise-like verse at {verse['start']}s: '{verse_text}'")
+                continue
+        
+        # Eşikten sonra veya yeterince kelime içeren verse'leri kabul et
+        filtered_verses.append(verse)
+    
+    return filtered_verses
+
+def filter_short_verses(verses, min_duration=0.5, min_word_count=2):
+    """
+    Çok kısa verse'leri filtrele. Bu genellikle arka vokalleri veya hatalı algılanmış sesleri temsil eder.
+    
+    Args:
+        verses (list[dict]): Verse'lerin listesi.
+        min_duration (float): Minimum verse süresi (saniye).
+        min_word_count (int): Minimum kelime sayısı.
+        
+    Returns:
+        list[dict]: Filtre sonrası kalan verse'lerin listesi.
+    """
+    if not verses:
+        return []
+    
+    filtered_verses = []
+    
+    for verse in verses:
+        # Verse süresi kontrolü
+        duration = verse["end"] - verse["start"]
+        
+        # Çok kısa verse mi?
+        if duration < min_duration:
+            logger.debug(f"Filtering out short verse at {verse['start']}s with duration {duration:.2f}s")
+            continue
+            
+        # Çok az kelime içeriyor mu?
+        if len(verse["words"]) < min_word_count:
+            logger.debug(f"Filtering out verse at {verse['start']}s with only {len(verse['words'])} words")
+            continue
+        
+        # Yeterince uzun verse'leri kabul et
+        filtered_verses.append(verse)
+    
+    return filtered_verses
+
 def post_process_sync(verses, audio_path):
     """
     DTW algoritması kullanarak senkronizasyonu düzeltir
@@ -80,6 +182,7 @@ def post_process_sync(verses, audio_path):
             word['end'] = corrected_times[i][1]
     
     return verses
+
 def _extract_lyrics_with_timing(
         audio_path: Union[str, Path],
         beam_size_input: int = 15,
@@ -117,8 +220,12 @@ def _extract_lyrics_with_timing(
         compression_ratio_threshold=compression_threshold_input, # Force Whisper to retain more words
         temperature=temperature_input,       # Eliminate randomness in transcription
         language=lang,                       # Language code for transcription
-		vad_filter=True,
-		vad_parameters=dict(min_silence_duration_ms=300, speech_pad_ms=100)
+        vad_filter=True,                     # Ses Aktivite Algılama filtresini etkinleştir
+        vad_parameters=dict(
+            min_silence_duration_ms=800,     # Sessizlik süresini uzat (arka vokaller arasında daha fazla boşluk olmasını sağlar)
+            speech_pad_ms=25,               # Vokal kenarlarındaki padding süresini azalt
+            threshold=0.6                   # Daha yüksek ses eşiği (0.5'den büyük olmalı)
+        )
     )
 
     logger.debug(f"Transcription of the vocals audio segments completed.")
@@ -152,7 +259,17 @@ def _extract_lyrics_with_timing(
         # Append the verse metadata to the list of verses
         verses.append(verse_data)
 
+    # Filtrele: istenmeyen kelimeleri içeren dizeleri çıkar
     verses = filter_lyrics(verses)
     logger.debug(f"Filtered out verses containing unwanted phrases. {len(verses)} verses remaining.")
+    
+    # Şarkının başındaki erken sesleri filtrele
+    verses = filter_early_vocals(verses)
+    logger.debug(f"Filtered out early verses that might be background vocals. {len(verses)} verses remaining.")
+    
+    # Çok kısa verse'leri filtrele (arka vokaller veya hatalar)
+    verses = filter_short_verses(verses)
+    logger.debug(f"Filtered out very short verses that might be errors. {len(verses)} verses remaining.")
+    
     logger.debug(f"Transcribed {len(verses)} verses with words, timing, and predictions using the Whisper model.")
     return verses

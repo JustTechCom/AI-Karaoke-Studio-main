@@ -41,8 +41,6 @@ Enstrümantal altyapı ve altyazı birleştirilerek karaoke videosu hazırlanır
 
 Python (AI işlemleri, API entegrasyonları)
 
-.NET Framework / Windows Forms (Kullanıcı arayüzü, işlem kontrolü)
-
 FFmpeg (Audio/Video işleme)
 
 Demucs (Source Separation)

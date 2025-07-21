@@ -126,7 +126,7 @@ FFmpeg parametrelerinin UI’dan ayarlanabilir olması
 
 📄 Lisans
 
-MIT Lisansı
+APACAHE 2.0 Lisansı
 
 
 ---

@@ -95,7 +95,10 @@ FROM install AS publish
 
 WORKDIR /app
 RUN echo '' > ./requirements.txt
-COPY app.py LICENSE README.md ./
+# Use the correct casing for the project README file. Linux filesystems are
+# case-sensitive, so the previous instruction looked for `README.md` which
+# does not exist, causing the Docker build to fail.
+COPY app.py LICENSE Readme.md ./
 COPY interface ./interface
 COPY modules ./modules
 

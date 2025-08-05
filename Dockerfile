@@ -27,8 +27,8 @@ RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.s
 
 ENV PATH=/opt/conda/bin:$PATH
 
-RUN conda tos accept --yes --channel https://repo.anaconda.com/pkgs/main && \
-    conda tos accept --yes --channel https://repo.anaconda.com/pkgs/r && \
+RUN conda tos accept --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --channel https://repo.anaconda.com/pkgs/r && \
     conda create --name karaoke_env python=3.10 -y && \
     conda init bash
 

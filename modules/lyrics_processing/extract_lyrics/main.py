@@ -16,22 +16,53 @@ MODEL = WhisperModel(MODEL_SIZE, device=DEVICE, compute_type=COMPUTE_TYPE)
 # Initialize Logger
 logger = logging.getLogger(__name__)
 
-def apply_dtw_correction(word_times, mfcc):
+def apply_dtw_correction(word_times, mfcc, sr):
     """
     DTW (Dynamic Time Warping) algoritması kullanarak kelime zamanlarını düzeltir.
-    Bu fonksiyon sadece bir yer tutucu olarak eklenmiştir ve gerçek bir işlem yapmaz.
-    
+
+    MFCC üzerinden elde edilen ses etkinliği ile sözcük zamanlarının faaliyet
+    dizisini hizalar ve daha iyi eşleşen yeni zamanlar üretir.
+
     Args:
-        word_times (list): Kelimelerin başlangıç ve bitiş zamanları listesi [(start1, end1), ...]
-        mfcc: MFCC özellikleri
-        
+        word_times (list[tuple]): Kelimelerin başlangıç ve bitiş zamanları
+            listesi ``[(start1, end1), ...]``.
+        mfcc (np.ndarray): Ses segmentine ait MFCC özellikleri.
+        sr (int): Ses verisinin örnekleme oranı.
+
     Returns:
-        list: Düzeltilmiş zamanlar listesi [(start1, end1), ...]
+        list[tuple]: Düzeltilmiş zamanlar listesi ``[(start1, end1), ...]``.
     """
-    # Bu fonksiyon şu an bir yer tutucu olarak eklenmiştir 
-    # ve herhangi bir değişiklik yapmaz.
-    # Gerçek DTW uygulaması burada yapılabilir.
-    return word_times
+    import numpy as np
+    import librosa
+    from fastdtw import fastdtw
+
+    # Tüm zamanları ilk kelimenin başlangıcına göre göreli hale getir
+    base_time = word_times[0][0]
+    frame_times = librosa.frames_to_time(range(mfcc.shape[1]), sr=sr)
+
+    # Kelime zamanlarından ikili bir etkinlik dizisi oluştur
+    word_activity = np.zeros(len(frame_times), dtype=np.float32)
+    for start, end in word_times:
+        s_idx = np.searchsorted(frame_times, start - base_time)
+        e_idx = np.searchsorted(frame_times, end - base_time)
+        word_activity[s_idx:e_idx] = 1.0
+
+    # MFCC'leri ortalama alarak tek boyutlu ses etkinliği çıkar
+    audio_activity = mfcc.mean(axis=0)
+
+    # İki diziyi DTW ile hizala
+    _, path = fastdtw(word_activity, audio_activity)
+    mapping = dict(path)
+
+    corrected = []
+    for start, end in word_times:
+        s_idx = np.searchsorted(frame_times, start - base_time)
+        e_idx = np.searchsorted(frame_times, end - base_time)
+        s_new = frame_times[mapping.get(s_idx, s_idx)] + base_time
+        e_new = frame_times[mapping.get(e_idx, e_idx)] + base_time
+        corrected.append((round(float(s_new), 2), round(float(e_new), 2)))
+
+    return corrected
 
 def filter_lyrics(verses):
     """
@@ -149,12 +180,8 @@ def filter_short_verses(verses, min_duration=0.5, min_word_count=2):
     return filtered_verses
 
 def post_process_sync(verses, audio_path):
-    """
-    DTW algoritması kullanarak senkronizasyonu düzeltir
-    """
+    """DTW algoritması kullanarak kelime zamanlarını sesle hizalar."""
     import librosa
-    import numpy as np
-    from fastdtw import fastdtw
     
     # Ses dosyasını yükle
     y, sr = librosa.load(audio_path)
@@ -173,8 +200,7 @@ def post_process_sync(verses, audio_path):
         mfcc = librosa.feature.mfcc(y=audio_segment, sr=sr)
         
         # DTW'yi uygula ve düzeltilmiş zamanları al
-        # (Burada DTW uygulaması basitleştirilmiştir, gerçek uygulamada daha karmaşık olabilir)
-        corrected_times = apply_dtw_correction(word_times, mfcc)
+        corrected_times = apply_dtw_correction(word_times, mfcc, sr)
         
         # Zaman damgalarını güncelle
         for i, word in enumerate(verse['words']):

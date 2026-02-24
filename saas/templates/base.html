@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Karaoke Studio{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-dark: #5a4bd1;
+            --secondary: #00b894;
+            --danger: #e17055;
+            --dark-bg: #0d0d1a;
+            --card-bg: #1a1a2e;
+            --border: #2d2d4e;
+            --text-muted: #8888aa;
+        }
+        body {
+            background: var(--dark-bg);
+            color: #e0e0f0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+        .navbar {
+            background: rgba(26, 26, 46, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+        }
+        .navbar-brand {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-link {
+            color: #c0c0e0 !important;
+            transition: color 0.2s;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary) !important;
+        }
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .card-header {
+            background: rgba(108, 92, 231, 0.1);
+            border-bottom: 1px solid var(--border);
+        }
+        .form-control, .form-select {
+            background: #0d0d1a;
+            border: 1px solid var(--border);
+            color: #e0e0f0;
+        }
+        .form-control:focus, .form-select:focus {
+            background: #0d0d1a;
+            border-color: var(--primary);
+            color: #e0e0f0;
+            box-shadow: 0 0 0 0.2rem rgba(108, 92, 231, 0.25);
+        }
+        .badge-plan-free { background: #444; }
+        .badge-plan-starter { background: #0984e3; }
+        .badge-plan-pro { background: var(--primary); }
+        .badge-plan-enterprise { background: var(--secondary); }
+        .alert-info { background: rgba(9, 132, 227, 0.15); border-color: #0984e3; color: #74b9ff; }
+        .alert-success { background: rgba(0, 184, 148, 0.15); border-color: var(--secondary); color: #55efc4; }
+        .alert-danger { background: rgba(225, 112, 85, 0.15); border-color: var(--danger); color: #fab1a0; }
+        .alert-warning { background: rgba(253, 203, 110, 0.15); border-color: #fdcb6e; color: #ffeaa7; }
+        footer {
+            background: var(--card-bg);
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .text-muted { color: var(--text-muted) !important; }
+        .table { color: #e0e0f0; }
+        .table td, .table th { border-color: var(--border); }
+        .table-hover tbody tr:hover { background: rgba(108, 92, 231, 0.05); }
+        .progress { background: #2d2d4e; }
+        .modal-content { background: var(--card-bg); border: 1px solid var(--border); }
+        .modal-header { border-bottom: 1px solid var(--border); }
+        .modal-footer { border-top: 1px solid var(--border); }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                🎤 AI Karaoke Studio
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if current_user %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="/dashboard">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'jobs' %}active{% endif %}" href="/dashboard#jobs">
+                            <i class="fas fa-tasks me-1"></i>İşlerim
+                        </a>
+                    </li>
+                    {% if current_user.is_admin %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'admin' %}active{% endif %}" href="/admin">
+                            <i class="fas fa-shield-alt me-1"></i>Yönetim
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'pricing' %}active{% endif %}" href="/pricing">
+                            <i class="fas fa-tags me-1"></i>Fiyatlar
+                        </a>
+                    </li>
+                    {% if current_user %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle me-1"></i>{{ current_user.username }}
+                            <span class="badge ms-1 badge-plan-{{ current_user.plan }}">{{ current_user.plan }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+                            <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>Profil</a></li>
+                            <li><a class="dropdown-item" href="/billing"><i class="fas fa-credit-card me-2"></i>Abonelik</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="#" onclick="logout()">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Çıkış
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/login"><i class="fas fa-sign-in-alt me-1"></i>Giriş</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="btn btn-primary btn-sm ms-2" href="/register">Ücretsiz Başla</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="container mt-3">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-1">
+                <strong style="color: #e0e0f0;">🎤 AI Karaoke Studio</strong>
+            </p>
+            <p class="small mb-0">
+                Powered by Whisper, Demucs & Google Gemini &nbsp;|&nbsp;
+                <a href="/privacy" class="text-muted text-decoration-none">Gizlilik</a> &nbsp;|&nbsp;
+                <a href="/terms" class="text-muted text-decoration-none">Kullanım Koşulları</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auth helpers
+        function getToken() { return localStorage.getItem('access_token'); }
+        function getUser() { return JSON.parse(localStorage.getItem('user') || 'null'); }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+
+        // Redirect to login if not authenticated (for protected pages)
+        function requireAuth() {
+            if (!getToken()) {
+                window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                return false;
+            }
+            return true;
+        }
+
+        // API request helper
+        async function apiRequest(url, method = 'GET', body = null) {
+            const token = getToken();
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const opts = { method, headers };
+            if (body) opts.body = JSON.stringify(body);
+
+            const res = await fetch(url, opts);
+
+            if (res.status === 401) {
+                logout();
+                return null;
+            }
+            return res;
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const toastHtml = `
+                <div class="toast align-items-center text-bg-${type} border-0 show" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;';
+                document.body.appendChild(container);
+            }
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            setTimeout(() => container.lastChild && container.lastChild.remove(), 5000);
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

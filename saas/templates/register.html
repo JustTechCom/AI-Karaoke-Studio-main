@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Kayıt Ol - AI Karaoke Studio{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 460px; margin-top: 60px;">
+    <div class="text-center mb-4">
+        <div style="font-size: 3rem;">🎤</div>
+        <h2 class="fw-bold">Hesap Oluştur</h2>
+        <p class="text-muted">Ücretsiz başlayın, kredi kartı gerekmez</p>
+    </div>
+
+    <div class="card p-4">
+        <div id="alert-container"></div>
+        <form id="registerForm">
+            <div class="mb-3">
+                <label class="form-label">Ad Soyad <span class="text-muted">(isteğe bağlı)</span></label>
+                <input type="text" class="form-control" id="full_name" placeholder="Adınız Soyadınız">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Kullanıcı Adı</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="background:#0d0d1a;border-color:var(--border);">@</span>
+                    <input type="text" class="form-control" id="username" placeholder="kullanici_adi" required
+                           pattern="[a-zA-Z0-9_\-]{3,50}" title="3-50 karakter, harf/rakam/_ ve -">
+                </div>
+                <div class="form-text text-muted">3-50 karakter, harf, rakam, _ ve - kullanabilirsiniz</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">E-posta Adresi</label>
+                <input type="email" class="form-control" id="email" placeholder="ornek@email.com" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Şifre</label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="password" placeholder="En az 8 karakter" required minlength="8">
+                    <button class="btn" type="button" style="background:#0d0d1a;border-color:var(--border);"
+                            onclick="togglePassword('password', this)">
+                        <i class="fas fa-eye text-muted"></i>
+                    </button>
+                </div>
+                <div class="progress mt-2" style="height: 4px;">
+                    <div class="progress-bar" id="passwordStrength" style="width: 0%;"></div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="terms" required>
+                    <label class="form-check-label text-muted" for="terms">
+                        <a href="/terms" style="color: var(--primary);">Kullanım Koşullarını</a> okudum ve kabul ediyorum
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100" id="registerBtn">
+                <i class="fas fa-user-plus me-2"></i>Ücretsiz Hesap Oluştur
+            </button>
+        </form>
+
+        <div class="mt-4 p-3 rounded" style="background: rgba(0,184,148,0.1); border: 1px solid rgba(0,184,148,0.3);">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="fas fa-gift" style="color: var(--secondary);"></i>
+                <strong style="color: var(--secondary);">Ücretsiz Plan İçeriği</strong>
+            </div>
+            <ul class="mb-0 small text-muted ps-3">
+                <li>Ayda 3 şarkı işleme</li>
+                <li>720p video çıkışı</li>
+                <li>Whisper AI transkripsiyon</li>
+                <li>Temel altyazı özellikleri</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="text-center mt-3 text-muted">
+        Zaten hesabınız var mı? <a href="/login" style="color: var(--primary);">Giriş Yap</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePassword(fieldId, btn) {
+    const field = document.getElementById(fieldId);
+    const icon = btn.querySelector('i');
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+        field.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+}
+
+document.getElementById('password').addEventListener('input', function() {
+    const val = this.value;
+    const bar = document.getElementById('passwordStrength');
+    let strength = 0;
+    if (val.length >= 8) strength += 25;
+    if (/[A-Z]/.test(val)) strength += 25;
+    if (/[0-9]/.test(val)) strength += 25;
+    if (/[^A-Za-z0-9]/.test(val)) strength += 25;
+    bar.style.width = strength + '%';
+    bar.className = 'progress-bar ' + (strength < 50 ? 'bg-danger' : strength < 75 ? 'bg-warning' : 'bg-success');
+});
+
+function showAlert(message, type = 'danger') {
+    document.getElementById('alert-container').innerHTML = `
+        <div class="alert alert-${type} mb-3">${message}</div>
+    `;
+}
+
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('registerBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Hesap oluşturuluyor...';
+
+    const payload = {
+        email: document.getElementById('email').value,
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        full_name: document.getElementById('full_name').value || null,
+    };
+
+    try {
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            showAlert(
+                '<i class="fas fa-check-circle me-2"></i>' + (data.message || 'Hesap oluşturuldu! E-postanızı kontrol edin.'),
+                'success'
+            );
+            btn.innerHTML = '<i class="fas fa-check me-2"></i>Hesap Oluşturuldu!';
+            setTimeout(() => { window.location.href = '/login'; }, 2500);
+        } else {
+            const msg = data.detail || (Array.isArray(data.detail) ? data.detail[0].msg : 'Kayıt başarısız');
+            showAlert(msg);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-user-plus me-2"></i>Ücretsiz Hesap Oluştur';
+        }
+    } catch (err) {
+        showAlert('Bağlantı hatası. Tekrar deneyin.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-plus me-2"></i>Ücretsiz Hesap Oluştur';
+    }
+});
+</script>
+{% endblock %}

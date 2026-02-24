@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Abonelik - AI Karaoke Studio{% endblock %}
+{% set active_page = 'billing' %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 800px;">
+    <h2 class="fw-bold mb-4"><i class="fas fa-credit-card me-2" style="color: var(--primary);"></i>Abonelik Yönetimi</h2>
+
+    <!-- Current Subscription -->
+    <div class="card p-4 mb-4" id="currentSubCard">
+        <div class="text-center py-3">
+            <div class="spinner-border" style="color: var(--primary);"></div>
+        </div>
+    </div>
+
+    <!-- Plan Comparison -->
+    <h5 class="fw-bold mb-3">Plan Değiştir</h5>
+    <div class="row g-3" id="plansRow">
+        {% for plan in plans %}
+        <div class="col-md-6">
+            <div class="card p-3 {% if plan.id == 'pro' %}border-primary{% endif %}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="fw-bold mb-1">{{ plan.name }}</h6>
+                        <div>
+                            <strong>{{ '$0' if plan.price_monthly == 0 else '$' + plan.price_monthly|string }}</strong>
+                            {% if plan.price_monthly > 0 %}<span class="text-muted small">/ay</span>{% endif %}
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="upgradePlan('{{ plan.id }}')"
+                            id="planBtn-{{ plan.id }}">
+                        Seç
+                    </button>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        {{ plan.songs_per_month if plan.songs_per_month != -1 else '∞' }} şarkı/ay •
+                        {{ plan.max_resolution }} çıkış
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Manage Subscription -->
+    <div class="card p-4 mt-4" id="manageSubCard" style="display: none!important;">
+        <h6 class="fw-bold mb-3">Abonelik Yönetimi</h6>
+        <p class="text-muted small">Stripe müşteri portalından fatura bilgileri, ödeme yöntemi ve iptal işlemlerini yönetebilirsiniz.</p>
+        <button class="btn btn-outline-primary" onclick="openPortal()">
+            <i class="fas fa-external-link-alt me-2"></i>Ödeme Portalına Git
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!requireAuth()) return;
+    const res = await apiRequest('/api/billing/subscription');
+    if (!res || !res.ok) return;
+    const sub = await res.json();
+
+    const planNames = { free: 'Ücretsiz', starter: 'Başlangıç', pro: 'Pro', enterprise: 'Kurumsal' };
+    const planColors = { free: '#444', starter: '#0984e3', pro: '#6c5ce7', enterprise: '#00b894' };
+
+    document.getElementById('currentSubCard').innerHTML = `
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h5 class="mb-1">Mevcut Plan:
+                    <span class="badge ms-2" style="background: ${planColors[sub.plan] || '#444'}">${planNames[sub.plan] || sub.plan}</span>
+                </h5>
+                <p class="text-muted mb-2">Durum: ${sub.status === 'active' ? '<span class="text-success">Aktif</span>' : sub.status}</p>
+                ${sub.current_period_end ? `<p class="text-muted small mb-0">Dönem sonu: ${new Date(sub.current_period_end).toLocaleDateString('tr-TR')}</p>` : ''}
+            </div>
+            <div class="col-md-6">
+                <div class="d-flex justify-content-between mb-1">
+                    <small>Bu ay: ${sub.songs_used_this_month} / ${sub.songs_limit === -1 ? '∞' : sub.songs_limit} şarkı</small>
+                </div>
+                ${sub.songs_limit !== -1 ? `
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar" style="width: ${Math.min(100, sub.songs_used_this_month / sub.songs_limit * 100)}%; background: var(--primary);"></div>
+                </div>` : ''}
+            </div>
+        </div>
+    `;
+
+    // Mark current plan button
+    document.querySelectorAll('[id^="planBtn-"]').forEach(btn => {
+        const planId = btn.id.replace('planBtn-', '');
+        if (planId === sub.plan) {
+            btn.textContent = 'Mevcut Plan';
+            btn.classList.replace('btn-primary', 'btn-secondary');
+            btn.disabled = true;
+        }
+    });
+
+    // Show portal button if has stripe subscription
+    if (sub.stripe_subscription_id || (sub.plan !== 'free' && sub.status === 'active')) {
+        document.getElementById('manageSubCard').style.removeProperty('display');
+    }
+});
+
+async function upgradePlan(plan) {
+    if (plan === 'free') return;
+    const res = await apiRequest('/api/billing/create-checkout-session', 'POST', {
+        plan,
+        success_url: window.location.origin + '/billing?upgraded=true',
+        cancel_url: window.location.origin + '/billing',
+    });
+    if (!res) return;
+    const data = await res.json();
+    if (res.ok && data.checkout_url) {
+        window.location.href = data.checkout_url;
+    } else {
+        showToast(data.detail || 'Ödeme sayfası açılamadı', 'danger');
+    }
+}
+
+async function openPortal() {
+    const res = await apiRequest('/api/billing/create-portal-session', 'POST', {
+        return_url: window.location.href,
+    });
+    if (!res) return;
+    const data = await res.json();
+    if (res.ok && data.portal_url) {
+        window.location.href = data.portal_url;
+    } else {
+        showToast(data.detail || 'Portal açılamadı', 'danger');
+    }
+}
+
+const params = new URLSearchParams(window.location.search);
+if (params.get('upgraded') === 'true') {
+    setTimeout(() => showToast('🎉 Planınız başarıyla güncellendi!', 'success'), 500);
+}
+</script>
+{% endblock %}

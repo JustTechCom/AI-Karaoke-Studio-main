@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Giriş Yap - AI Karaoke Studio{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 420px; margin-top: 80px;">
+    <div class="text-center mb-4">
+        <div style="font-size: 3rem;">🎤</div>
+        <h2 class="fw-bold">Tekrar Hoş Geldiniz</h2>
+        <p class="text-muted">Hesabınıza giriş yapın</p>
+    </div>
+
+    <div class="card p-4">
+        <div id="alert-container"></div>
+        <form id="loginForm">
+            <div class="mb-3">
+                <label class="form-label">E-posta Adresi</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="background:#0d0d1a;border-color:var(--border);">
+                        <i class="fas fa-envelope text-muted"></i>
+                    </span>
+                    <input type="email" class="form-control" id="email" placeholder="ornek@email.com" required>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label d-flex justify-content-between">
+                    Şifre
+                    <a href="/forgot-password" class="text-decoration-none" style="color: var(--primary);">Şifremi Unuttum</a>
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text" style="background:#0d0d1a;border-color:var(--border);">
+                        <i class="fas fa-lock text-muted"></i>
+                    </span>
+                    <input type="password" class="form-control" id="password" placeholder="••••••••" required>
+                    <button class="btn" type="button" style="background:#0d0d1a;border-color:var(--border);"
+                            onclick="togglePassword('password', this)">
+                        <i class="fas fa-eye text-muted"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="remember">
+                <label class="form-check-label text-muted" for="remember">Beni Hatırla</label>
+            </div>
+            <button type="submit" class="btn btn-primary w-100" id="loginBtn">
+                <i class="fas fa-sign-in-alt me-2"></i>Giriş Yap
+            </button>
+        </form>
+    </div>
+
+    <div class="text-center mt-3 text-muted">
+        Hesabınız yok mu? <a href="/register" style="color: var(--primary);">Ücretsiz Kayıt Ol</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePassword(fieldId, btn) {
+    const field = document.getElementById(fieldId);
+    const icon = btn.querySelector('i');
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+        field.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+}
+
+function showAlert(message, type = 'danger') {
+    document.getElementById('alert-container').innerHTML = `
+        <div class="alert alert-${type} mb-3">${message}</div>
+    `;
+}
+
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Giriş yapılıyor...';
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, password}),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            localStorage.setItem('access_token', data.access_token);
+            localStorage.setItem('refresh_token', data.refresh_token);
+            localStorage.setItem('user', JSON.stringify({
+                id: data.user_id,
+                email: data.email,
+                username: data.username,
+                is_admin: data.is_admin,
+                plan: data.plan,
+            }));
+
+            // Redirect to next page or dashboard
+            const params = new URLSearchParams(window.location.search);
+            window.location.href = params.get('next') || '/dashboard';
+        } else {
+            showAlert(data.detail || 'Giriş başarısız');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Giriş Yap';
+        }
+    } catch (err) {
+        showAlert('Bağlantı hatası. Tekrar deneyin.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Giriş Yap';
+    }
+});
+
+// Check URL params for messages
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('verified') === 'true') {
+    document.getElementById('alert-container').innerHTML = `
+        <div class="alert alert-success mb-3">
+            <i class="fas fa-check-circle me-2"></i>E-postanız doğrulandı! Şimdi giriş yapabilirsiniz.
+        </div>
+    `;
+}
+if (urlParams.get('reset') === 'true') {
+    document.getElementById('alert-container').innerHTML = `
+        <div class="alert alert-success mb-3">
+            <i class="fas fa-check-circle me-2"></i>Şifreniz sıfırlandı. Yeni şifrenizle giriş yapın.
+        </div>
+    `;
+}
+</script>
+{% endblock %}

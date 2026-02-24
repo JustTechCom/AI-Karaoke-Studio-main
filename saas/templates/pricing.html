@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Fiyatlar - AI Karaoke Studio{% endblock %}
+{% set active_page = 'pricing' %}
+
+{% block extra_css %}
+<style>
+.pricing-card { transition: transform 0.3s, box-shadow 0.3s; }
+.pricing-card:hover { transform: translateY(-8px); box-shadow: 0 20px 60px rgba(108,92,231,0.2); }
+.pricing-card.featured {
+    border: 2px solid var(--primary) !important;
+    position: relative;
+}
+.featured-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary);
+    color: white;
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.price-amount { font-size: 3rem; font-weight: 800; }
+.feature-check { color: var(--secondary); }
+.feature-x { color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h1 class="fw-bold">Şeffaf Fiyatlandırma</h1>
+        <p class="text-muted lead">İhtiyacınıza uygun planı seçin. İstediğiniz zaman değiştirin.</p>
+    </div>
+
+    <div class="row g-4 justify-content-center">
+        {% for plan in plans %}
+        <div class="col-md-6 col-lg-3">
+            <div class="card pricing-card h-100 {% if plan.id == 'pro' %}featured{% endif %}">
+                {% if plan.id == 'pro' %}
+                <div class="featured-badge">⭐ En Popüler</div>
+                {% endif %}
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-1">{{ plan.name }}</h5>
+                    <div class="mb-3">
+                        <span class="price-amount">{{ '0' if plan.price_monthly == 0 else '$' + plan.price_monthly|string }}</span>
+                        {% if plan.price_monthly > 0 %}<span class="text-muted">/ay</span>{% endif %}
+                    </div>
+
+                    {% if current_user and current_user.plan == plan.id %}
+                    <div class="btn btn-secondary w-100 mb-4 disabled">
+                        <i class="fas fa-check me-2"></i>Mevcut Planınız
+                    </div>
+                    {% elif plan.id == 'free' %}
+                    <a href="/register" class="btn btn-outline-light w-100 mb-4">
+                        Ücretsiz Başla
+                    </a>
+                    {% else %}
+                    <button class="btn btn-primary w-100 mb-4" onclick="upgradePlan('{{ plan.id }}')">
+                        {% if current_user %}Plan Yükselt{% else %}Başla{% endif %}
+                    </button>
+                    {% endif %}
+
+                    <ul class="list-unstyled">
+                        {% for feature in plan.features %}
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle feature-check me-2"></i>
+                            {{ feature }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- FAQ -->
+    <div class="row justify-content-center mt-5">
+        <div class="col-lg-8">
+            <h3 class="text-center fw-bold mb-4">Sıkça Sorulan Sorular</h3>
+            <div class="accordion" id="faqAccordion">
+                {% set faqs = [
+                    ("Ücretsiz plandan nasıl yükseltebilirim?", "Dashboard'dan veya bu sayfadaki 'Plan Yükselt' butonuna tıklayarak güvenli Stripe ödeme sayfasına yönlendirilirsiniz."),
+                    ("Hangi ses formatları destekleniyor?", "MP3, WAV, FLAC, M4A, OGG, AAC ve WMA formatları desteklenmektedir."),
+                    ("İptal etmek istersem ne olur?", "İstediğiniz zaman iptal edebilirsiniz. Mevcut dönem sonuna kadar planınız aktif kalır."),
+                    ("API nasıl kullanılır?", "Pro ve Kurumsal planlarda Dashboard > Ayarlar'dan API anahtarı oluşturabilirsiniz. Dokümantasyon için /api/docs sayfasını ziyaret edin."),
+                    ("Video kalitesi nedir?", "Ücretsiz planda 720p, Başlangıç ve Pro planda 1080p, Kurumsal planda 4K video üretilir."),
+                ] %}
+                {% for i, (q, a) in enumerate(faqs, 1) %}
+                <div class="accordion-item" style="background: var(--card-bg); border-color: var(--border);">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button"
+                                style="background: var(--card-bg); color: #e0e0f0;"
+                                data-bs-toggle="collapse" data-bs-target="#faq{{ i }}">
+                            {{ q }}
+                        </button>
+                    </h2>
+                    <div id="faq{{ i }}" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body text-muted">{{ a }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function upgradePlan(plan) {
+    const token = getToken();
+    if (!token) {
+        window.location.href = '/login?next=/pricing';
+        return;
+    }
+
+    try {
+        const res = await apiRequest('/api/billing/create-checkout-session', 'POST', {
+            plan: plan,
+            success_url: window.location.origin + '/dashboard?upgraded=true',
+            cancel_url: window.location.origin + '/pricing',
+        });
+
+        if (!res) return;
+        const data = await res.json();
+
+        if (res.ok && data.checkout_url) {
+            window.location.href = data.checkout_url;
+        } else {
+            showToast(data.detail || 'Ödeme sayfası açılamadı', 'danger');
+        }
+    } catch(e) {
+        showToast('Bağlantı hatası', 'danger');
+    }
+}
+
+// Show upgrade success message
+const params = new URLSearchParams(window.location.search);
+if (params.get('upgraded') === 'true') {
+    setTimeout(() => showToast('🎉 Planınız başarıyla güncellendi!', 'success'), 500);
+}
+</script>
+{% endblock %}

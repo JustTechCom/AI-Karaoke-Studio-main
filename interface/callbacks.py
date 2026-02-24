@@ -101,7 +101,7 @@ def process_audio_callback(
 
     except Exception as e:
         logger.error(f"Error in process_audio_callback: {e}")
-        return (None, None, f"Error: {e}")
+        return (None, None, f"Error: {e}", None, None)
 
 
 def modify_lyrics_callback(
@@ -423,7 +423,7 @@ def generate_subtitles_and_video_callback(
             loader_threshold=loader_threshold,
         )
 
-        if effects_choice == "None":
+        if effects_choice == "Yok":
             effect_video_path = None
         else:
             effect_video_path = Path(effects_dir) / effects_choice

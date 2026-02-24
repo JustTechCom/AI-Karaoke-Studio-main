@@ -203,7 +203,7 @@ def _extract_lyrics_with_timing(
         list[dict]: List of verses with text and metadata.
     """
     # If the user chooses Auto Detect, we let Whisper decide (or pass None)
-    if language_option == "Auto Detect":
+    if language_option in ("Auto Detect", "Otomatik Algılama"):
         lang = None
     else:
         available_langs = get_available_languages()

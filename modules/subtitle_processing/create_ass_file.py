@@ -8,16 +8,6 @@ from .utilities import get_ass_rounded_rectangle
 # Şarkı başlığının ekranda kalma süresi
 title_duration = 4
 
-def format_time(seconds: float) -> str:
-    """
-    Float olarak gelen zamanı ASS formatına çevirir.
-    Örnek: 0:00:05.20
-    """
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = seconds % 60
-    return f"{hours}:{minutes:02}:{secs:05.2f}"
-
 def write_section(file, section_name: str, content: str):
     file.write(f"[{section_name}]\n")
     file.write(content)
@@ -161,8 +151,8 @@ def write_dialogue(
             # Ekranın tam ortasına yerleştir (\an5)
             text = f"{{\\an5}}{text}"
         elif position == "lower_center":
-            # Ekranın alt-orta kısmına yerleştir (\an8)
-            text = f"{{\\an8}}{text}"
+            # Ekranın alt-orta kısmına yerleştir (\an2)
+            text = f"{{\\an2}}{text}"
     
     file.write(
         f"Dialogue: 0,{format_time(start)},{format_time(end)},{style},,{margin_l},{margin_r},{margin_v},,{text}\n"

@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% block title %}Yönetim Paneli - AI Karaoke Studio{% endblock %}
+{% set active_page = 'admin' %}
+
+{% block extra_css %}
+<style>
+.stat-card { border-left: 4px solid var(--primary); }
+.stat-value { font-size: 2rem; font-weight: 800; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4">
+    <h2 class="fw-bold mb-4"><i class="fas fa-shield-alt me-2" style="color: var(--primary);"></i>Yönetim Paneli</h2>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4" id="statsRow">
+        <div class="col-12 text-center py-3">
+            <div class="spinner-border" style="color: var(--primary);"></div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" style="border-color: var(--border);">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#usersTab" style="color: #e0e0f0; border-color: var(--border) var(--border) var(--card-bg);">
+                <i class="fas fa-users me-2"></i>Kullanıcılar
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#jobsTab" style="color: #e0e0f0;">
+                <i class="fas fa-tasks me-2"></i>İşler
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Users Tab -->
+        <div class="tab-pane fade show active" id="usersTab">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-3">
+                    <h6 class="mb-0 fw-bold">Kullanıcılar</h6>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control form-control-sm" id="userSearch"
+                               placeholder="Ara..." style="width: 200px;" oninput="debounceSearch()">
+                        <select class="form-select form-select-sm" id="planFilter" onchange="loadUsers()" style="width: 150px;">
+                            <option value="">Tüm Planlar</option>
+                            <option value="free">Ücretsiz</option>
+                            <option value="starter">Başlangıç</option>
+                            <option value="pro">Pro</option>
+                            <option value="enterprise">Kurumsal</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr style="border-color: var(--border);">
+                                    <th>Kullanıcı</th>
+                                    <th>Plan</th>
+                                    <th>İşler</th>
+                                    <th>Durum</th>
+                                    <th>Kayıt</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr><td colspan="6" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer" id="usersPagination"></div>
+            </div>
+        </div>
+
+        <!-- Jobs Tab -->
+        <div class="tab-pane fade" id="jobsTab">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-3">
+                    <h6 class="mb-0 fw-bold">Tüm İşler</h6>
+                    <select class="form-select form-select-sm" id="adminJobStatus" onchange="loadAdminJobs()" style="width: 150px;">
+                        <option value="">Tümü</option>
+                        <option value="queued">Kuyrukta</option>
+                        <option value="processing_audio">İşleniyor</option>
+                        <option value="completed">Tamamlanan</option>
+                        <option value="failed">Başarısız</option>
+                    </select>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr style="border-color: var(--border);">
+                                    <th>İş ID</th>
+                                    <th>Kullanıcı</th>
+                                    <th>Şarkı</th>
+                                    <th>Durum</th>
+                                    <th>Tarih</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminJobsTableBody">
+                                <tr><td colspan="6" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer" id="adminJobsPagination"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Edit Modal -->
+<div class="modal fade" id="userEditModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Kullanıcı Düzenle</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editUserId">
+                <div class="mb-3">
+                    <label class="form-label">Plan</label>
+                    <select class="form-select" id="editUserPlan">
+                        <option value="free">Ücretsiz</option>
+                        <option value="starter">Başlangıç</option>
+                        <option value="pro">Pro</option>
+                        <option value="enterprise">Kurumsal</option>
+                    </select>
+                </div>
+                <div class="form-check mb-2">
+                    <input type="checkbox" class="form-check-input" id="editUserActive">
+                    <label class="form-check-label" for="editUserActive">Aktif</label>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="editUserAdmin">
+                    <label class="form-check-label" for="editUserAdmin">Yönetici</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-primary" onclick="saveUserEdit()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (!requireAuth()) return;
+    loadStats();
+    loadUsers();
+    loadAdminJobs();
+});
+
+async function loadStats() {
+    const res = await apiRequest('/api/admin/stats');
+    if (!res || !res.ok) return;
+    const data = await res.json();
+
+    const planColors = { free: '#444', starter: '#0984e3', pro: '#6c5ce7', enterprise: '#00b894' };
+    document.getElementById('statsRow').innerHTML = `
+        <div class="col-md-3 col-6">
+            <div class="card stat-card p-3">
+                <div class="text-muted small">Toplam Kullanıcı</div>
+                <div class="stat-value">${data.users.total}</div>
+                <div class="text-muted small">+${data.users.new_last_30_days} son 30 gün</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card stat-card p-3" style="border-color: var(--secondary);">
+                <div class="text-muted small">Toplam İş</div>
+                <div class="stat-value" style="color: var(--secondary);">${data.jobs.total}</div>
+                <div class="text-muted small">${data.jobs.success_rate_pct}% başarı oranı</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card stat-card p-3" style="border-color: #fdcb6e;">
+                <div class="text-muted small">Aktif İşler</div>
+                <div class="stat-value" style="color: #fdcb6e;">${data.jobs.active_now}</div>
+                <div class="text-muted small">Şu an işleniyor</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card stat-card p-3" style="border-color: var(--danger);">
+                <div class="text-muted small">Başarısız İşler</div>
+                <div class="stat-value" style="color: var(--danger);">${data.jobs.failed}</div>
+                <div class="text-muted small">Son 30 gün: ${data.jobs.last_30_days}</div>
+            </div>
+        </div>
+    `;
+}
+
+let searchTimer;
+function debounceSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(loadUsers, 400);
+}
+
+async function loadUsers(page = 1) {
+    const search = document.getElementById('userSearch').value;
+    const plan = document.getElementById('planFilter').value;
+    let url = `/api/admin/users?page=${page}&per_page=20`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (plan) url += `&plan=${plan}`;
+
+    const res = await apiRequest(url);
+    if (!res || !res.ok) return;
+    const data = await res.json();
+
+    const planNames = { free: 'Ücretsiz', starter: 'Başlangıç', pro: 'Pro', enterprise: 'Kurumsal' };
+    const planColors = { free: '#444', starter: '#0984e3', pro: '#6c5ce7', enterprise: '#00b894' };
+
+    document.getElementById('usersTableBody').innerHTML = data.users.map(u => `
+        <tr>
+            <td>
+                <div class="fw-semibold">${u.username}</div>
+                <small class="text-muted">${u.email}</small>
+            </td>
+            <td><span class="badge" style="background: ${planColors[u.plan] || '#444'}">${planNames[u.plan] || u.plan}</span></td>
+            <td>${u.total_jobs}</td>
+            <td>
+                ${u.is_active ? '<span class="badge bg-success">Aktif</span>' : '<span class="badge bg-secondary">Pasif</span>'}
+                ${u.is_admin ? '<span class="badge ms-1" style="background:var(--primary)">Admin</span>' : ''}
+                ${!u.is_verified ? '<span class="badge bg-warning text-dark ms-1">Doğrulanmamış</span>' : ''}
+            </td>
+            <td><small class="text-muted">${new Date(u.created_at).toLocaleDateString('tr-TR')}</small></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="editUser('${u.id}', '${u.plan}', ${u.is_active}, ${u.is_admin})">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function editUser(id, plan, isActive, isAdmin) {
+    document.getElementById('editUserId').value = id;
+    document.getElementById('editUserPlan').value = plan;
+    document.getElementById('editUserActive').checked = isActive;
+    document.getElementById('editUserAdmin').checked = isAdmin;
+    new bootstrap.Modal(document.getElementById('userEditModal')).show();
+}
+
+async function saveUserEdit() {
+    const id = document.getElementById('editUserId').value;
+    const res = await apiRequest(`/api/admin/users/${id}`, 'PATCH', {
+        plan: document.getElementById('editUserPlan').value,
+        is_active: document.getElementById('editUserActive').checked,
+        is_admin: document.getElementById('editUserAdmin').checked,
+    });
+    if (res && res.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('userEditModal')).hide();
+        showToast('Kullanıcı güncellendi', 'success');
+        loadUsers();
+    }
+}
+
+async function loadAdminJobs(page = 1) {
+    const status = document.getElementById('adminJobStatus').value;
+    let url = `/api/admin/jobs?page=${page}&per_page=20`;
+    if (status) url += `&status=${status}`;
+
+    const res = await apiRequest(url);
+    if (!res || !res.ok) return;
+    const data = await res.json();
+
+    document.getElementById('adminJobsTableBody').innerHTML = data.jobs.map(j => `
+        <tr>
+            <td><code style="font-size:0.75rem">${j.id.substring(0, 8)}...</code></td>
+            <td><small>${j.user_id.substring(0, 8)}...</small></td>
+            <td>${j.song_title ? `${j.artist_name || ''} - ${j.song_title}` : j.original_filename || '-'}</td>
+            <td><span class="badge ${j.status === 'completed' ? 'bg-success' : j.status === 'failed' ? 'bg-danger' : 'bg-secondary'}">${j.status}</span></td>
+            <td><small class="text-muted">${new Date(j.created_at).toLocaleDateString('tr-TR')}</small></td>
+            <td>
+                ${j.status === 'failed' ? `<button class="btn btn-sm btn-outline-warning" onclick="retryJob('${j.id}')"><i class="fas fa-redo"></i></button>` : ''}
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function retryJob(jobId) {
+    const res = await apiRequest(`/api/admin/jobs/${jobId}/retry`, 'POST');
+    if (res && res.ok) {
+        showToast('İş yeniden kuyruğa alındı', 'success');
+        loadAdminJobs();
+    }
+}
+</script>
+{% endblock %}

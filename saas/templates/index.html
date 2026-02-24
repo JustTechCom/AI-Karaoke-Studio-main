@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}AI Karaoke Studio - Profesyonel Karaoke Video Oluşturucu{% endblock %}
+
+{% block extra_css %}
+<style>
+.hero {
+    background: linear-gradient(135deg, #0d0d1a 0%, #1a0a2e 50%, #0d1a2e 100%);
+    padding: 100px 0;
+    position: relative;
+    overflow: hidden;
+}
+.hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at center, rgba(108,92,231,0.1) 0%, transparent 60%);
+    animation: pulse 8s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 30%, var(--primary) 70%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.2;
+}
+.hero-subtitle {
+    font-size: 1.2rem;
+    color: #a0a0c0;
+    max-width: 600px;
+}
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+.step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container position-relative">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <div class="mb-3">
+                    <span class="badge" style="background: rgba(108,92,231,0.3); color: #a29bfe; font-size: 0.85rem; padding: 8px 16px; border-radius: 20px;">
+                        🚀 Yapay Zeka Destekli
+                    </span>
+                </div>
+                <h1 class="hero-title mb-4">
+                    Herhangi Şarkıyı<br>Karaoke Videoya<br>Dönüştür
+                </h1>
+                <p class="hero-subtitle mb-4">
+                    Whisper AI, Demucs ve Google Gemini teknolojileriyle saniyeler içinde
+                    profesyonel kalitede karaoke videoları oluşturun.
+                </p>
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="/register" class="btn btn-primary btn-lg px-4">
+                        <i class="fas fa-rocket me-2"></i>Ücretsiz Başla
+                    </a>
+                    <a href="/pricing" class="btn btn-outline-light btn-lg px-4">
+                        <i class="fas fa-tags me-2"></i>Fiyatları Gör
+                    </a>
+                </div>
+                <p class="mt-3 small text-muted">
+                    <i class="fas fa-check-circle text-success me-1"></i>Kredi kartı gerekmez &nbsp;
+                    <i class="fas fa-check-circle text-success me-1"></i>Ayda 3 şarkı ücretsiz
+                </p>
+            </div>
+            <div class="col-lg-6 text-center mt-5 mt-lg-0">
+                <div class="card p-4" style="background: rgba(108,92,231,0.1); border: 1px solid rgba(108,92,231,0.3);">
+                    <div style="font-size: 4rem;">🎤</div>
+                    <h5 class="mt-3" style="color: #a29bfe;">Pipeline Aşamaları</h5>
+                    <div class="mt-3 text-start">
+                        {% set steps = [
+                            ('fa-upload', 'Ses Yükle', '#00b894'),
+                            ('fa-cut', 'Stem Ayrımı (Demucs)', '#6c5ce7'),
+                            ('fa-microphone', 'Söz Tanıma (Whisper)', '#0984e3'),
+                            ('fa-magic', 'AI Söz Düzeltme', '#e17055'),
+                            ('fa-closed-captioning', 'Altyazı Oluştur', '#fdcb6e'),
+                            ('fa-film', 'Video Üret', '#6c5ce7'),
+                        ] %}
+                        {% for icon, text, color in steps %}
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas {{ icon }} me-3" style="color: {{ color }}; width: 20px;"></i>
+                            <span>{{ text }}</span>
+                            <i class="fas fa-check ms-auto" style="color: {{ color }};"></i>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats -->
+<section class="py-5" style="background: var(--card-bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+    <div class="container">
+        <div class="row text-center">
+            <div class="col-md-3 col-6 mb-3 mb-md-0">
+                <div class="stat-number">7</div>
+                <div class="text-muted">İşlem Aşaması</div>
+            </div>
+            <div class="col-md-3 col-6 mb-3 mb-md-0">
+                <div class="stat-number">HD</div>
+                <div class="text-muted">Video Kalitesi</div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-number">AI</div>
+                <div class="text-muted">Söz Düzeltme</div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="stat-number">GPU</div>
+                <div class="text-muted">Hızlandırılmış</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section class="py-5">
+    <div class="container">
+        <h2 class="text-center fw-bold mb-2">Neden AI Karaoke Studio?</h2>
+        <p class="text-center text-muted mb-5">Tam otomatik, yapay zeka destekli karaoke video oluşturucu</p>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <div class="feature-icon" style="background: rgba(108,92,231,0.2);">🎵</div>
+                    <h5>Stem Ayrımı</h5>
+                    <p class="text-muted">Facebook Demucs modeli ile ses dosyasını vokal, bas, davul ve enstrümanlara ayırır.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <div class="feature-icon" style="background: rgba(9,132,227,0.2);">🗣️</div>
+                    <h5>Whisper Transkripsiyon</h5>
+                    <p class="text-muted">OpenAI Whisper Large-V3 modeli ile kelime düzeyinde zaman damgalı transkripsiyon.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <div class="feature-icon" style="background: rgba(0,184,148,0.2);">🤖</div>
+                    <h5>AI Söz Düzeltme</h5>
+                    <p class="text-muted">Google Gemini ile Genius sözlerini referans alarak transkripsiyon hatalarını otomatik düzeltir.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <div class="feature-icon" style="background: rgba(253,203,110,0.2);">🎬</div>
+                    <h5>Profesyonel Video</h5>
+                    <p class="text-muted">FFmpeg ile 1080p karaoke videoları, kelime bazlı vurgulama efektleri ve özelleştirilebilir altyazı.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <div class="feature-icon" style="background: rgba(225,112,85,0.2);">⚡</div>
+                    <h5>GPU Hızlandırma</h5>
+                    <p class="text-muted">NVIDIA CUDA desteği ile Whisper ve Demucs işlemleri GPU üzerinde hızlı çalışır.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 p-4">
+                    <div class="feature-icon" style="background: rgba(108,92,231,0.2);">🔗</div>
+                    <h5>REST API</h5>
+                    <p class="text-muted">Pro ve Kurumsal planlarda tam API erişimi ile uygulamalarınıza entegre edin.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it works -->
+<section class="py-5" style="background: var(--card-bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+    <div class="container">
+        <h2 class="text-center fw-bold mb-5">Nasıl Çalışır?</h2>
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                {% set how_steps = [
+                    ('Ses Dosyasını Yükle', 'MP3, WAV, FLAC veya diğer ses formatlarını yükleyin.'),
+                    ('Otomatik İşleme', 'AI pipeline ses ayrımı, transkripsiyon ve söz düzeltmeyi otomatik yapar.'),
+                    ('Video İndir', 'Kelime bazlı altyazılı karaoke videonuzu indirin ve kullanın.'),
+                ] %}
+                {% for i, (title, desc) in enumerate(how_steps, 1) %}
+                <div class="d-flex gap-4 mb-4">
+                    <div class="step-number">{{ i }}</div>
+                    <div>
+                        <h5 class="mb-1">{{ title }}</h5>
+                        <p class="text-muted mb-0">{{ desc }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="py-5 text-center">
+    <div class="container">
+        <h2 class="fw-bold mb-3">Hemen Başlayın</h2>
+        <p class="text-muted mb-4">Ücretsiz hesap oluşturun, ayda 3 şarkı ücretsiz işleyin.</p>
+        <a href="/register" class="btn btn-primary btn-lg px-5">
+            <i class="fas fa-rocket me-2"></i>Ücretsiz Hesap Oluştur
+        </a>
+    </div>
+</section>
+{% endblock %}

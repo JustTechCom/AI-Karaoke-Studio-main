@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - AI Karaoke Studio{% endblock %}
+{% block extra_css %}
+<style>
+.upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+.upload-area:hover, .upload-area.dragover {
+    border-color: var(--primary);
+    background: rgba(108,92,231,0.05);
+}
+.job-card {
+    transition: transform 0.2s;
+}
+.job-card:hover {
+    transform: translateY(-2px);
+}
+.status-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+.status-pending { background: rgba(255,255,255,0.1); }
+.status-queued { background: rgba(9,132,227,0.3); color: #74b9ff; }
+.status-processing { background: rgba(253,203,110,0.3); color: #ffeaa7; }
+.status-completed { background: rgba(0,184,148,0.3); color: #55efc4; }
+.status-failed { background: rgba(225,112,85,0.3); color: #fab1a0; }
+.quota-bar { height: 8px; border-radius: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Quota Warning Banner -->
+    <div id="quotaBanner" class="alert alert-warning d-none mb-4">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <span id="quotaMessage"></span>
+        <a href="/pricing" class="btn btn-sm btn-warning ms-3">Plan Yükselt</a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left: Upload + Stats -->
+        <div class="col-lg-4">
+            <!-- Usage Card -->
+            <div class="card p-4 mb-4" id="usageCard">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 fw-bold">Bu Ay Kullanım</h6>
+                    <span class="badge" id="planBadge">-</span>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <small class="text-muted">Şarkılar</small>
+                    <small id="usageText">-</small>
+                </div>
+                <div class="progress quota-bar mb-3">
+                    <div class="progress-bar" id="usageBar" style="width: 0%; background: var(--primary);"></div>
+                </div>
+                <a href="/pricing" class="btn btn-outline-primary btn-sm w-100">
+                    <i class="fas fa-arrow-up me-1"></i>Plan Yükselt
+                </a>
+            </div>
+
+            <!-- Upload Card -->
+            <div class="card p-4">
+                <h5 class="mb-3 fw-bold"><i class="fas fa-plus-circle me-2" style="color: var(--primary);"></i>Yeni Karaoke</h5>
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('audioFile').click()">
+                    <input type="file" id="audioFile" class="d-none" accept=".mp3,.wav,.flac,.m4a,.ogg,.aac,.wma">
+                    <div id="uploadPlaceholder">
+                        <i class="fas fa-cloud-upload-alt fa-3x mb-3" style="color: var(--primary);"></i>
+                        <p class="mb-1">Ses dosyasını sürükle veya tıkla</p>
+                        <p class="small text-muted">MP3, WAV, FLAC, M4A (Maks. 200MB)</p>
+                    </div>
+                    <div id="uploadPreview" class="d-none">
+                        <i class="fas fa-music fa-2x mb-2" style="color: var(--secondary);"></i>
+                        <p class="mb-0 fw-bold" id="selectedFileName"></p>
+                        <p class="small text-muted" id="selectedFileSize"></p>
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div id="uploadOptions" class="mt-3 d-none">
+                    <div class="mb-2">
+                        <label class="form-label small">Dil</label>
+                        <select class="form-select form-select-sm" id="language">
+                            <option value="">Otomatik Algıla</option>
+                            <option value="turkish">Türkçe</option>
+                            <option value="english">İngilizce</option>
+                            <option value="spanish">İspanyolca</option>
+                            <option value="french">Fransızca</option>
+                            <option value="german">Almanca</option>
+                            <option value="italian">İtalyanca</option>
+                            <option value="portuguese">Portekizce</option>
+                            <option value="arabic">Arapça</option>
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Çözünürlük</label>
+                        <select class="form-select form-select-sm" id="resolution">
+                            <option value="1280x720">720p HD</option>
+                            <option value="1920x1080">1080p Full HD</option>
+                            <option value="640x480">480p</option>
+                        </select>
+                    </div>
+                    <div class="d-flex gap-3 mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="useAI" checked>
+                            <label class="form-check-label small" for="useAI">AI Düzeltme</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="fetchGenius" checked>
+                            <label class="form-check-label small" for="fetchGenius">Genius Sözleri</label>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100" id="submitBtn" onclick="submitJob()">
+                        <i class="fas fa-rocket me-2"></i>İşlemi Başlat
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Jobs List -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-tasks me-2"></i>İşlerim</h5>
+                    <div class="d-flex gap-2">
+                        <select class="form-select form-select-sm" id="statusFilter" onchange="loadJobs()" style="width: auto;">
+                            <option value="">Tümü</option>
+                            <option value="pending">Bekleyen</option>
+                            <option value="completed">Tamamlanan</option>
+                            <option value="failed">Başarısız</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadJobs()">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="jobsLoading" class="text-center py-5">
+                        <div class="spinner-border" style="color: var(--primary);"></div>
+                        <p class="mt-2 text-muted">Yükleniyor...</p>
+                    </div>
+                    <div id="jobsEmpty" class="text-center py-5 d-none">
+                        <i class="fas fa-music fa-3x mb-3 text-muted"></i>
+                        <h6>Henüz iş yok</h6>
+                        <p class="text-muted">İlk karaoke videonuzu oluşturmak için sol paneli kullanın.</p>
+                    </div>
+                    <div id="jobsList"></div>
+                </div>
+                <div class="card-footer" id="jobsPagination"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Job Detail Modal -->
+<div class="modal fade" id="jobModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">İş Detayı</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="jobModalBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <a href="#" class="btn btn-success d-none" id="downloadBtn" download>
+                    <i class="fas fa-download me-2"></i>İndir
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let pollingIntervals = {};
+let currentPage = 1;
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+    if (!requireAuth()) return;
+    loadSubscription();
+    loadJobs();
+    setupFileInput();
+    setupDragDrop();
+});
+
+// File input
+function setupFileInput() {
+    document.getElementById('audioFile').addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) showFilePreview(file);
+    });
+}
+
+function setupDragDrop() {
+    const area = document.getElementById('uploadArea');
+    area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragover'); });
+    area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+    area.addEventListener('drop', e => {
+        e.preventDefault();
+        area.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            document.getElementById('audioFile').files = e.dataTransfer.files;
+            showFilePreview(file);
+        }
+    });
+}
+
+function showFilePreview(file) {
+    document.getElementById('uploadPlaceholder').classList.add('d-none');
+    document.getElementById('uploadPreview').classList.remove('d-none');
+    document.getElementById('uploadOptions').classList.remove('d-none');
+    document.getElementById('selectedFileName').textContent = file.name;
+    document.getElementById('selectedFileSize').textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+// Load subscription info
+async function loadSubscription() {
+    try {
+        const res = await apiRequest('/api/billing/subscription');
+        if (!res || !res.ok) return;
+        const data = await res.json();
+
+        // Update plan badge
+        const planNames = { free: 'Ücretsiz', starter: 'Başlangıç', pro: 'Pro', enterprise: 'Kurumsal' };
+        const planColors = { free: '#444', starter: '#0984e3', pro: '#6c5ce7', enterprise: '#00b894' };
+        const badge = document.getElementById('planBadge');
+        badge.textContent = planNames[data.plan] || data.plan;
+        badge.style.background = planColors[data.plan] || '#444';
+
+        // Update usage bar
+        const used = data.songs_used_this_month;
+        const limit = data.songs_limit;
+        document.getElementById('usageText').textContent = limit === -1 ? `${used} / ∞` : `${used} / ${limit}`;
+        if (limit !== -1) {
+            const pct = Math.min(100, (used / limit) * 100);
+            document.getElementById('usageBar').style.width = pct + '%';
+            if (pct >= 90) document.getElementById('usageBar').style.background = 'var(--danger)';
+            else if (pct >= 70) document.getElementById('usageBar').style.background = '#fdcb6e';
+
+            if (pct >= 100) {
+                document.getElementById('quotaBanner').classList.remove('d-none');
+                document.getElementById('quotaMessage').textContent = `Bu ay için şarkı kotanıza (${limit}) ulaştınız!`;
+            }
+        }
+    } catch(e) { console.error(e); }
+}
+
+// Load jobs
+async function loadJobs(page = 1) {
+    currentPage = page;
+    document.getElementById('jobsLoading').classList.remove('d-none');
+    document.getElementById('jobsList').innerHTML = '';
+    document.getElementById('jobsEmpty').classList.add('d-none');
+
+    const status = document.getElementById('statusFilter').value;
+    const url = `/api/jobs?page=${page}&per_page=10${status ? '&status=' + status : ''}`;
+
+    try {
+        const res = await apiRequest(url);
+        if (!res || !res.ok) return;
+        const data = await res.json();
+
+        document.getElementById('jobsLoading').classList.add('d-none');
+
+        if (!data.jobs || data.jobs.length === 0) {
+            document.getElementById('jobsEmpty').classList.remove('d-none');
+            return;
+        }
+
+        // Render jobs
+        const container = document.getElementById('jobsList');
+        container.innerHTML = data.jobs.map(job => renderJobRow(job)).join('');
+
+        // Start polling for active jobs
+        data.jobs.forEach(job => {
+            const activeStatuses = ['pending', 'queued', 'processing_audio', 'processing_stems',
+                                    'extracting_lyrics', 'fetching_lyrics', 'correcting_lyrics',
+                                    'generating_subtitles', 'generating_video'];
+            if (activeStatuses.includes(job.status)) {
+                startPolling(job.id);
+            }
+        });
+
+        // Pagination
+        renderPagination(data.total, data.page, data.per_page);
+
+    } catch(e) {
+        console.error(e);
+        document.getElementById('jobsLoading').classList.add('d-none');
+    }
+}
+
+function renderJobRow(job) {
+    const statusClass = getStatusClass(job.status);
+    const statusIcon = getStatusIcon(job.status);
+    const date = new Date(job.created_at).toLocaleDateString('tr-TR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const title = job.song_title ? `${job.artist_name || ''} - ${job.song_title}` : job.original_filename;
+    const isActive = ['pending','queued','processing_audio','processing_stems','extracting_lyrics',
+                      'fetching_lyrics','correcting_lyrics','generating_subtitles','generating_video'].includes(job.status);
+
+    return `
+        <div class="p-3 border-bottom job-card" id="job-${job.id}" style="border-color: var(--border)!important;">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1 me-3">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="status-badge status-${isActive ? 'processing' : job.status}">
+                            ${statusIcon} ${job.status_display}
+                        </span>
+                        <small class="text-muted">${date}</small>
+                    </div>
+                    <div class="fw-semibold">${title || 'İsimsiz'}</div>
+                    ${isActive ? `
+                        <div class="mt-2">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small class="text-muted">İşleniyor...</small>
+                                <small class="text-muted" id="prog-${job.id}">${job.progress}%</small>
+                            </div>
+                            <div class="progress" style="height: 4px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                     id="bar-${job.id}" style="width: ${job.progress}%; background: var(--primary);">
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${job.error_message ? `<small class="text-danger mt-1 d-block"><i class="fas fa-exclamation-circle me-1"></i>${job.error_message.substring(0, 100)}</small>` : ''}
+                </div>
+                <div class="d-flex gap-2 flex-shrink-0">
+                    ${job.status === 'completed' ? `
+                        <a href="/api/jobs/${job.id}/download" class="btn btn-sm btn-success" title="İndir">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    ` : ''}
+                    <button class="btn btn-sm btn-outline-secondary" onclick="showJobDetail('${job.id}')" title="Detay">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                    ${['pending','queued'].includes(job.status) ? `
+                        <button class="btn btn-sm btn-outline-danger" onclick="cancelJob('${job.id}')" title="İptal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function getStatusClass(status) {
+    const map = { pending: 'secondary', queued: 'info', completed: 'success', failed: 'danger', canceled: 'secondary' };
+    return map[status] || 'warning';
+}
+
+function getStatusIcon(status) {
+    const map = {
+        pending: '⏳', queued: '🕐', processing_audio: '🎵', processing_stems: '✂️',
+        extracting_lyrics: '📝', fetching_lyrics: '🔍', correcting_lyrics: '🤖',
+        generating_subtitles: '📺', generating_video: '🎬', completed: '✅', failed: '❌', canceled: '🚫'
+    };
+    return map[status] || '⏳';
+}
+
+// Polling for active jobs
+function startPolling(jobId) {
+    if (pollingIntervals[jobId]) return;
+    pollingIntervals[jobId] = setInterval(() => pollJobStatus(jobId), 3000);
+}
+
+async function pollJobStatus(jobId) {
+    try {
+        const res = await apiRequest(`/api/jobs/${jobId}/status`);
+        if (!res || !res.ok) return;
+        const data = await res.json();
+
+        // Update progress
+        const progEl = document.getElementById(`prog-${jobId}`);
+        const barEl = document.getElementById(`bar-${jobId}`);
+        if (progEl) progEl.textContent = data.progress + '%';
+        if (barEl) barEl.style.width = data.progress + '%';
+
+        // If done, stop polling and reload
+        const doneStatuses = ['completed', 'failed', 'canceled'];
+        if (doneStatuses.includes(data.status)) {
+            clearInterval(pollingIntervals[jobId]);
+            delete pollingIntervals[jobId];
+            await loadJobs(currentPage);
+        }
+    } catch(e) { console.error(e); }
+}
+
+// Submit job
+async function submitJob() {
+    const fileInput = document.getElementById('audioFile');
+    if (!fileInput.files[0]) {
+        showToast('Lütfen bir ses dosyası seçin', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Yükleniyor...';
+
+    const formData = new FormData();
+    formData.append('audio_file', fileInput.files[0]);
+    formData.append('language', document.getElementById('language').value);
+    formData.append('resolution', document.getElementById('resolution').value);
+    formData.append('use_ai_correction', document.getElementById('useAI').checked);
+    formData.append('fetch_reference_lyrics', document.getElementById('fetchGenius').checked);
+
+    try {
+        const token = getToken();
+        const res = await fetch('/api/jobs/submit', {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            body: formData,
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            showToast('İş başarıyla kuyruğa alındı!', 'success');
+            // Reset form
+            fileInput.value = '';
+            document.getElementById('uploadPlaceholder').classList.remove('d-none');
+            document.getElementById('uploadPreview').classList.add('d-none');
+            document.getElementById('uploadOptions').classList.add('d-none');
+            loadJobs();
+        } else {
+            showToast(data.detail || 'İş gönderilemedi', 'danger');
+        }
+    } catch(e) {
+        showToast('Bağlantı hatası', 'danger');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-rocket me-2"></i>İşlemi Başlat';
+}
+
+// Cancel job
+async function cancelJob(jobId) {
+    if (!confirm('Bu işi iptal etmek istediğinize emin misiniz?')) return;
+    const res = await apiRequest(`/api/jobs/${jobId}`, 'DELETE');
+    if (res && res.ok) {
+        showToast('İş iptal edildi', 'info');
+        loadJobs(currentPage);
+    }
+}
+
+// Show job detail
+async function showJobDetail(jobId) {
+    const res = await apiRequest(`/api/jobs/${jobId}`);
+    if (!res || !res.ok) return;
+    const job = await res.json();
+
+    document.getElementById('jobModalBody').innerHTML = `
+        <table class="table table-sm">
+            <tr><th>ID</th><td><code>${job.id}</code></td></tr>
+            <tr><th>Durum</th><td>${job.status_display}</td></tr>
+            <tr><th>İlerleme</th><td>${job.progress}%</td></tr>
+            <tr><th>Dosya</th><td>${job.original_filename || '-'}</td></tr>
+            <tr><th>Şarkı</th><td>${job.song_title || '-'}</td></tr>
+            <tr><th>Sanatçı</th><td>${job.artist_name || '-'}</td></tr>
+            <tr><th>Oluşturulma</th><td>${new Date(job.created_at).toLocaleString('tr-TR')}</td></tr>
+            ${job.completed_at ? `<tr><th>Tamamlanma</th><td>${new Date(job.completed_at).toLocaleString('tr-TR')}</td></tr>` : ''}
+            ${job.error_message ? `<tr><th>Hata</th><td class="text-danger">${job.error_message}</td></tr>` : ''}
+        </table>
+    `;
+
+    const dlBtn = document.getElementById('downloadBtn');
+    if (job.status === 'completed' && job.output_video_url) {
+        dlBtn.classList.remove('d-none');
+        dlBtn.href = `/api/jobs/${job.id}/download`;
+    } else {
+        dlBtn.classList.add('d-none');
+    }
+
+    new bootstrap.Modal(document.getElementById('jobModal')).show();
+}
+
+function renderPagination(total, page, perPage) {
+    const totalPages = Math.ceil(total / perPage);
+    if (totalPages <= 1) { document.getElementById('jobsPagination').innerHTML = ''; return; }
+
+    let html = `<nav><ul class="pagination pagination-sm mb-0 justify-content-center">`;
+    html += `<li class="page-item ${page <= 1 ? 'disabled' : ''}"><a class="page-link" onclick="loadJobs(${page-1})" style="background:transparent;color:#e0e0f0;border-color:var(--border);">‹</a></li>`;
+    for (let i = 1; i <= totalPages; i++) {
+        html += `<li class="page-item ${i === page ? 'active' : ''}"><a class="page-link" onclick="loadJobs(${i})" style="${i===page?'background:var(--primary);border-color:var(--primary);':'background:transparent;color:#e0e0f0;border-color:var(--border);'}">${i}</a></li>`;
+    }
+    html += `<li class="page-item ${page >= totalPages ? 'disabled' : ''}"><a class="page-link" onclick="loadJobs(${page+1})" style="background:transparent;color:#e0e0f0;border-color:var(--border);">›</a></li>`;
+    html += '</ul></nav>';
+    document.getElementById('jobsPagination').innerHTML = html;
+}
+</script>
+{% endblock %}

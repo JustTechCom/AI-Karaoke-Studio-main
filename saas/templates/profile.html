@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Profil - AI Karaoke Studio{% endblock %}
+{% set active_page = 'profile' %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 700px;">
+    <h2 class="fw-bold mb-4"><i class="fas fa-user-circle me-2" style="color: var(--primary);"></i>Profil Ayarları</h2>
+
+    <!-- Profile Card -->
+    <div class="card p-4 mb-4">
+        <h5 class="fw-bold mb-3">Hesap Bilgileri</h5>
+        <div id="profileAlert"></div>
+        <form id="profileForm">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Ad Soyad</label>
+                    <input type="text" class="form-control" id="fullName" placeholder="Ad Soyad">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Kullanıcı Adı</label>
+                    <input type="text" class="form-control" id="username" disabled>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">E-posta</label>
+                    <input type="email" class="form-control" id="email" disabled>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Change Password Card -->
+    <div class="card p-4 mb-4">
+        <h5 class="fw-bold mb-3">Şifre Değiştir</h5>
+        <div id="passwordAlert"></div>
+        <form id="passwordForm">
+            <div class="mb-3">
+                <label class="form-label">Mevcut Şifre</label>
+                <input type="password" class="form-control" id="currentPassword" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Yeni Şifre</label>
+                <input type="password" class="form-control" id="newPassword" required minlength="8">
+            </div>
+            <button type="submit" class="btn btn-primary" id="changePassBtn">
+                <i class="fas fa-key me-2"></i>Şifre Değiştir
+            </button>
+        </form>
+    </div>
+
+    <!-- API Keys Card -->
+    <div class="card p-4" id="apiKeysCard">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">API Anahtarları</h5>
+            <button class="btn btn-sm btn-primary" onclick="showCreateKeyModal()">
+                <i class="fas fa-plus me-1"></i>Yeni Anahtar
+            </button>
+        </div>
+        <div id="apiKeysList">
+            <p class="text-muted small">API anahtarları Pro ve Kurumsal planlarda kullanılabilir.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Create API Key Modal -->
+<div class="modal fade" id="createKeyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Yeni API Anahtarı</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="newKeyDisplay" class="d-none">
+                    <div class="alert alert-warning">
+                        <strong>Bu anahtarı kaydedin!</strong> Bir daha gösterilmeyecek.
+                    </div>
+                    <div class="p-3 rounded mb-2" style="background: #0d0d1a; font-family: monospace; word-break: break-all;" id="newKeyValue"></div>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="copyKey()">
+                        <i class="fas fa-copy me-1"></i>Kopyala
+                    </button>
+                </div>
+                <div id="newKeyForm">
+                    <div class="mb-3">
+                        <label class="form-label">Anahtar Adı</label>
+                        <input type="text" class="form-control" id="keyName" placeholder="Örn: Üretim API">
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="readOnly">
+                        <label class="form-check-label" for="readOnly">Salt Okunur</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-primary" id="createKeyBtn" onclick="createApiKey()">Oluştur</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!requireAuth()) return;
+    const res = await apiRequest('/api/auth/me');
+    if (!res || !res.ok) return;
+    const user = await res.json();
+    document.getElementById('fullName').value = user.full_name || '';
+    document.getElementById('username').value = user.username;
+    document.getElementById('email').value = user.email;
+
+    // Load API keys
+    loadApiKeys();
+});
+
+async function loadApiKeys() {
+    const res = await apiRequest('/api/keys');
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    if (data.keys.length === 0) return;
+
+    document.getElementById('apiKeysList').innerHTML = `
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Ad</th><th>Prefix</th><th>Son Kullanım</th><th></th></tr></thead>
+            <tbody>
+                ${data.keys.map(k => `
+                    <tr>
+                        <td>${k.name}</td>
+                        <td><code>${k.key_prefix}...</code></td>
+                        <td class="text-muted small">${k.last_used_at ? new Date(k.last_used_at).toLocaleDateString('tr-TR') : 'Hiç kullanılmadı'}</td>
+                        <td><button class="btn btn-sm btn-outline-danger" onclick="revokeKey('${k.id}')"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+document.getElementById('passwordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const res = await apiRequest('/api/auth/change-password', 'POST', {
+        current_password: document.getElementById('currentPassword').value,
+        new_password: document.getElementById('newPassword').value,
+    });
+    const data = await res.json();
+    document.getElementById('passwordAlert').innerHTML = res.ok
+        ? `<div class="alert alert-success mb-3">${data.message}</div>`
+        : `<div class="alert alert-danger mb-3">${data.detail}</div>`;
+});
+
+function showCreateKeyModal() {
+    document.getElementById('newKeyDisplay').classList.add('d-none');
+    document.getElementById('newKeyForm').classList.remove('d-none');
+    document.getElementById('createKeyBtn').classList.remove('d-none');
+    new bootstrap.Modal(document.getElementById('createKeyModal')).show();
+}
+
+async function createApiKey() {
+    const res = await apiRequest('/api/keys', 'POST', {
+        name: document.getElementById('keyName').value,
+        read_only: document.getElementById('readOnly').checked,
+    });
+    const data = await res.json();
+    if (res.ok) {
+        document.getElementById('newKeyForm').classList.add('d-none');
+        document.getElementById('createKeyBtn').classList.add('d-none');
+        document.getElementById('newKeyDisplay').classList.remove('d-none');
+        document.getElementById('newKeyValue').textContent = data.key;
+        loadApiKeys();
+    } else {
+        showToast(data.detail || 'Anahtar oluşturulamadı', 'danger');
+    }
+}
+
+function copyKey() {
+    navigator.clipboard.writeText(document.getElementById('newKeyValue').textContent);
+    showToast('Kopyalandı!', 'success');
+}
+
+async function revokeKey(id) {
+    if (!confirm('Bu API anahtarını iptal etmek istiyor musunuz?')) return;
+    const res = await apiRequest(`/api/keys/${id}`, 'DELETE');
+    if (res && res.ok) { showToast('Anahtar iptal edildi', 'info'); loadApiKeys(); }
+}
+</script>
+{% endblock %}

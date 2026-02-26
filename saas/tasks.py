@@ -200,19 +200,15 @@ def process_karaoke_job(self, job_id: str, user_id: str, input_file_path: str, o
 
         # ── Stage 6: Generate Subtitles ───────────────────────────────────
         logger.info(f"[{job_id}] Stage 6: Generating ASS subtitles")
-        from modules.subtitle_processing.process import process_subtitles
         from modules import process_karaoke_subtitles
 
-        subtitle_options = {
-            "font": options.get("font", "Arial"),
-            "primary_color": options.get("primary_color", "&H00FFFFFF"),
-            "secondary_color": options.get("secondary_color", "&H0000FFFF"),
-            "font_size": options.get("font_size", 28),
-            "outline": options.get("outline", 2),
-        }
         process_karaoke_subtitles(
-            working_dir=str(job_cache_dir),
-            **subtitle_options,
+            output_path=job_cache_dir,
+            font=options.get("font", "/app/fonts/Futura XBlkCnIt BT.ttf"),
+            primary_color=options.get("primary_color", "Orange"),
+            secondary_color=options.get("secondary_color", "White"),
+            fontsize=options.get("font_size", 60),
+            outline_size=options.get("outline", 3),
         )
 
         _update_job_status(job_id, "generating_video", 85)
@@ -227,18 +223,17 @@ def process_karaoke_job(self, job_id: str, user_id: str, input_file_path: str, o
         output_filename = f"{safe_title}_karaoke.mp4"
         output_path = storage.get_output_path(user_id, job_id, output_filename)
 
-        video_options = {
-            "resolution": options.get("resolution", "1280x720"),
-            "fps": options.get("fps", 24),
-            "video_bitrate": options.get("video_bitrate", "2000k"),
-            "audio_bitrate": options.get("audio_bitrate", "192k"),
-        }
+        audio_path = job_cache_dir / "karaoke_audio.mp3"
+        ass_path = job_cache_dir / "karaoke_subtitles.ass"
 
         generate_karaoke_video(
-            working_dir=str(job_cache_dir),
+            audio_path=str(audio_path),
+            ass_path=str(ass_path),
             output_path=str(output_path),
-            effects_dir=str(project_root / "effects"),
-            **video_options,
+            resolution=options.get("resolution", "1280x720"),
+            fps=options.get("fps", 24),
+            bitrate=options.get("video_bitrate", "2000k"),
+            audio_bitrate=options.get("audio_bitrate", "192k"),
         )
 
         # ── Complete ──────────────────────────────────────────────────────

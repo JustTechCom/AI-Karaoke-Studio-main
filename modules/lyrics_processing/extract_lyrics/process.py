@@ -40,7 +40,7 @@ def transcribe_audio_lyrics(
         logger.info("Transcribing raw lyrics from the vocals audio using Whisper model...")
         # Extract lyrics metadata from the vocals stem
         lyrics_metadata = _extract_lyrics_with_timing(
-            input_vocals,
+            str(input_vocals),
             beam_size_input,
             best_of_input,
             patience_input,

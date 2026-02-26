@@ -2,22 +2,39 @@
 FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
 
 # System dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureRepositories=true \
+    -o Acquire::AllowDowngradeToInsecureRepositories=true update \
+    && apt-get install -y --allow-unauthenticated \
     python3.10 python3.10-dev python3-pip \
     ffmpeg \
     libsndfile1 \
     libgl1-mesa-glx \
     libglib2.0-0 \
     curl \
+    libchromaprint-tools \
+    pkg-config \
+    libavformat-dev \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavutil-dev \
+    libswresample-dev \
+    libswscale-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
 # Install Python dependencies
-COPY requirements.txt requirements_saas.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
-RUN pip3 install --no-cache-dir -r requirements_saas.txt
+COPY requirements_saas.txt ./
+# Upgrade pip to fix topological sort bug in Ubuntu 22.04's system pip (22.x)
+RUN pip3 install --upgrade pip
+# Install PyTorch with CUDA 12.1 support first
+RUN pip3 install --no-cache-dir \
+    torch==2.2.0 torchaudio==2.2.0 torchvision==0.17.0 \
+    --index-url https://download.pytorch.org/whl/cu121
+# Install remaining dependencies (exclude torch packages already installed above)
+RUN grep -v -E "^torch(audio|vision)?==" requirements_saas.txt > /tmp/requirements_no_torch.txt \
+    && pip3 install --no-cache-dir -r /tmp/requirements_no_torch.txt
 
 # Pre-download AI models (speeds up first run)
 RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('large-v3', device='cpu', compute_type='float32')" || true

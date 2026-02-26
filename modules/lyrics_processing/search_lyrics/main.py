@@ -59,3 +59,13 @@ def _fetch_official_lyrics(metadata):
     except Exception as e:
         logger.error(f"Error fetching lyrics: {e}")
         raise RuntimeError(f"Error fetching lyrics: {e}")
+
+
+def search_lyrics(
+    working_dir,
+    song_title: str = None,
+    artist_name: str = None,
+):
+    """Public wrapper for saas/tasks.py: fetch reference lyrics from Genius."""
+    from .process import fetch_and_save_lyrics
+    fetch_and_save_lyrics(output_path=working_dir)

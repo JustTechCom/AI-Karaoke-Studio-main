@@ -49,3 +49,12 @@ def _excecute_stem_merge(
     except Exception as e:
         logger.error(f"Error in merging audio stems: {e}")
         raise RuntimeError(f"Error in merging audio stems: {e}")
+
+
+def merge_stems(
+    working_dir: Union[str, Path],
+    force_process: bool = False,
+):
+    """Public wrapper for saas/tasks.py: merge stems into karaoke audio."""
+    from .process import merge_audio_stems
+    merge_audio_stems(working_dir=Path(working_dir), override=force_process)

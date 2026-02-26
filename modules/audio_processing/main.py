@@ -101,3 +101,42 @@ def _fetch_audio_metadata(
     except Exception as e:
         logger.error(f"Error processing audio file: {e}", exc_info=True)
         return metadata["title"], metadata["artists"]
+
+
+def process_audio(
+    audio_file: Union[str, Path],
+    working_dir: Union[str, Path],
+    force_process: bool = False,
+    file_name: str = "metadata.json",
+) -> dict:
+    """
+    Processes audio metadata for the given file and returns title/artist info.
+
+    Args:
+        audio_file: Path to the input audio file.
+        working_dir: Directory to save metadata.json.
+        force_process: If True, re-processes even if metadata.json exists.
+        file_name: Name of the metadata file.
+
+    Returns:
+        dict with 'title' and 'artist' keys.
+    """
+    import json
+
+    metadata_file = Path(working_dir) / file_name
+    if metadata_file.exists() and not force_process:
+        logger.info("Metadata already exists. Skipping extraction.")
+        with open(metadata_file, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        artists = metadata.get("artists", ["Unknown Artist"])
+        return {
+            "title": metadata.get("title", "Unknown Title"),
+            "artist": artists[0] if artists else "Unknown Artist",
+        }
+
+    Path(working_dir).mkdir(parents=True, exist_ok=True)
+    title, artists = _fetch_audio_metadata(audio_file, working_dir, file_name)
+    return {
+        "title": title if title else "Unknown Title",
+        "artist": artists[0] if artists else "Unknown Artist",
+    }

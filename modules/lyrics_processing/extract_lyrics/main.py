@@ -273,3 +273,18 @@ def _extract_lyrics_with_timing(
     
     logger.debug(f"Transcribed {len(verses)} verses with words, timing, and predictions using the Whisper model.")
     return verses
+
+
+def extract_lyrics(
+    working_dir: Union[str, Path],
+    language: str = None,
+    force_transcription: bool = False,
+):
+    """Public wrapper for saas/tasks.py: transcribe vocals to raw_lyrics.json."""
+    from .process import transcribe_audio_lyrics
+    language_option = language if language else "Auto Detect"
+    transcribe_audio_lyrics(
+        working_dir=working_dir,
+        override=force_transcription,
+        language_option=language_option,
+    )

@@ -1,5 +1,28 @@
 # ─── SaaS Layer Dependencies ──────────────────────────────────────────────────
 
+# AI / ML Core
+torch==2.2.0
+torchaudio==2.2.0
+torchvision==0.17.0
+faster-whisper==1.0.1
+demucs==4.0.1
+
+# Audio Processing
+pydub==0.25.1
+beautifulsoup4==4.12.3
+colorama==0.4.6
+colorlog==6.8.2
+
+# LLM / Translation
+langchain-openai>=1.1.0
+langchain-core>=1.2.0
+deep-translator==1.11.4
+lyricsgenius==3.0.1
+
+# Utilities
+python-dotenv==1.0.1
+pandas==2.3.3
+
 # Web Framework
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
@@ -16,7 +39,7 @@ bcrypt==4.1.2
 sqlalchemy==2.0.25
 alembic==1.13.1
 # For PostgreSQL (uncomment if using PostgreSQL):
-# psycopg2-binary==2.9.9
+psycopg2-binary==2.9.9
 
 # Task Queue
 celery==5.3.6
@@ -31,6 +54,9 @@ stripe==8.0.0
 
 # HTTP Client (for webhooks etc.)
 httpx==0.26.0
+
+# Audio fingerprinting
+pyacoustid==1.3.0
 
 # Validation
 pydantic[email]==2.5.3

@@ -58,6 +58,7 @@ app.add_middleware(
 
 SAAS_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(SAAS_DIR / "templates"))
+templates.env.globals["get_flashed_messages"] = lambda with_categories=False: []
 
 # Serve uploaded/output files
 storage_path = settings.STORAGE_LOCAL_PATH

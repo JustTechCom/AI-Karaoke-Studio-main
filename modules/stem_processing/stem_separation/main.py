@@ -45,8 +45,9 @@ def _excecute_stem_separation(
             f"cuda:{torch.cuda.current_device()}" if torch.cuda.is_available() else "cpu")
 
         # Prepare the command to execute the Demucs model
+        import sys
         cmd = [
-            "python", "-m", "demucs.separate",
+            sys.executable, "-m", "demucs.separate",
             "-o", str(output_path),
             "-n", config.model,
             "--device", f"{device}"
@@ -64,6 +65,9 @@ def _excecute_stem_separation(
         if config.two_stems is not None:
             cmd += [f"--two-stems={config.two_stems}"]
 
+        if config.segment is not None:
+            cmd += [f"--segment={config.segment}"]
+
         cmd.append(str(input_path))
         logger.debug(f"Executing command: {' '.join(cmd)}")
 
@@ -78,3 +82,13 @@ def _excecute_stem_separation(
     except Exception as e:
         logger.error(f"Error in stem separation: {e}")
         raise RuntimeError(f"Error in stem separation: {e}")
+
+
+def separate_stems(
+    audio_file: Union[str, Path],
+    working_dir: Union[str, Path],
+    force_process: bool = False,
+):
+    """Public wrapper for saas/tasks.py: separate audio into stems."""
+    from .process import separate_audio_stems
+    separate_audio_stems(input_file=audio_file, working_dir=Path(working_dir), override=force_process)

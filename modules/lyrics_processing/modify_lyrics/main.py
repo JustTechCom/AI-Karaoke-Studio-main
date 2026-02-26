@@ -50,3 +50,9 @@ def _modify_lyrics_ai(raw_lyrics, reference_lyrics):
     except Exception as e:
         logger.error(f"Error during lyrics modification: {e}")
         raise
+
+
+def modify_lyrics(working_dir):
+    """Public wrapper for saas/tasks.py: run AI lyrics correction."""
+    from .process import perform_lyric_enhancement
+    perform_lyric_enhancement(output_path=working_dir)

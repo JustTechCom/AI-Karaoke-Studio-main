@@ -3,14 +3,17 @@ from typing import List, Optional
 import os
 
 # Third-Party Imports
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.output_parsers import PydanticOutputParser
 from pydantic import BaseModel, Field, RootModel
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMENI_MODEL = "gemini-1.5-flash"
+# CAL (code-cli-any-llm) proxy ayarları
+# Docker container'dan host'a erişim: 172.17.0.1
+CAL_BASE_URL = os.getenv("CAL_BASE_URL", "http://172.17.0.1:23062/api/v1/openai/v1")
+CAL_API_KEY = os.getenv("CAL_API_KEY", "cal-proxy")
+CAL_MODEL = os.getenv("CAL_MODEL", "gpt-5-codex")
 
 # Prompt components\
 PREFIX = """

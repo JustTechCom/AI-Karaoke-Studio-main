@@ -1,14 +1,16 @@
 # Third-Party Imports
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 # Local Application Imports
-from .config import GEMINI_API_KEY, GEMENI_MODEL, PARSER, PREFIX, EXPECTATION, EDGE_CASES
+from .config import CAL_BASE_URL, CAL_API_KEY, CAL_MODEL, PARSER, PREFIX, EXPECTATION, EDGE_CASES
 
-# Initialize the Gemini model
-llm = ChatGoogleGenerativeAI(
-    google_api_key=GEMINI_API_KEY,
-    model=GEMENI_MODEL,
-    temperature=0
+# Initialize LLM via CAL (code-cli-any-llm) proxy
+llm = ChatOpenAI(
+    base_url=CAL_BASE_URL,
+    api_key=CAL_API_KEY,
+    model=CAL_MODEL,
+    temperature=0,
+    use_responses_api=False
 )
 
 

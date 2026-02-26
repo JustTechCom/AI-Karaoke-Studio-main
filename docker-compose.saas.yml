@@ -70,6 +70,8 @@ services:
       - ./fonts:/app/fonts:ro
       - ./effects:/app/effects:ro
       - ./logs:/app/logs
+      - ./modules:/app/modules
+      - ./saas:/app/saas
     depends_on:
       redis:
         condition: service_healthy
@@ -78,13 +80,6 @@ services:
     networks:
       - karaoke-net
     command: uvicorn saas_app:app --host 0.0.0.0 --port 8000 --workers 2
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   # ─── Celery Worker (GPU processing) ──────────────────────────────────────
   worker:
@@ -107,6 +102,8 @@ services:
       - ./effects:/app/effects:ro
       - ./logs:/app/logs
       - ./gerisayim:/app/gerisayim:ro
+      - ./modules:/app/modules
+      - ./saas:/app/saas
     depends_on:
       redis:
         condition: service_healthy
@@ -115,13 +112,6 @@ services:
     networks:
       - karaoke-net
     command: celery -A celery_worker.celery_app worker --loglevel=info --queues=karaoke --concurrency=2
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   # ─── Celery Monitoring (optional) ────────────────────────────────────────
   flower:
